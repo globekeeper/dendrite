@@ -33,6 +33,7 @@ type EmailAssociationRequest struct {
 	Secret      string `json:"client_secret"`
 	Email       string `json:"email"`
 	SendAttempt int    `json:"send_attempt"`
+	NextLink    string `json:"next_link"`
 }
 
 // EmailAssociationCheckRequest represents the request defined at https://matrix.org/docs/spec/client_server/r0.2.0.html#post-matrix-client-r0-account-3pid
@@ -66,6 +67,7 @@ func CreateSession(
 	data.Add("client_secret", req.Secret)
 	data.Add("email", req.Email)
 	data.Add("send_attempt", strconv.Itoa(req.SendAttempt))
+	data.Add("next_link", req.NextLink)
 
 	request, err := http.NewRequest(http.MethodPost, postURL, strings.NewReader(data.Encode()))
 	if err != nil {
