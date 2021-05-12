@@ -22,6 +22,7 @@ import (
 	"github.com/matrix-org/dendrite/clientapi/userutil"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/userapi/api"
+	"github.com/matrix-org/dendrite/userapi/storage/accounts"
 	"github.com/matrix-org/util"
 )
 
@@ -29,13 +30,16 @@ type GetAccountByPassword func(ctx context.Context, localpart, password string) 
 
 type PasswordRequest struct {
 	Login
+	Address  string `json:"address"`
 	Password string `json:"password"`
+	Medium   string `json:"medium"`
 }
 
 // LoginTypePassword implements https://matrix.org/docs/spec/client_server/r0.6.1#password-based
 type LoginTypePassword struct {
 	GetAccountByPassword GetAccountByPassword
 	Config               *config.ClientAPI
+	AccountDB            accounts.Database
 }
 
 func (t *LoginTypePassword) Name() string {
@@ -48,14 +52,25 @@ func (t *LoginTypePassword) Request() interface{} {
 
 func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login, *util.JSONResponse) {
 	r := req.(*PasswordRequest)
-	username := r.Username()
+	var username string
+	var localpart string
+	var err error
+	username = r.Username()
 	if username == "" {
+		if r.Medium == "email" && r.Address != "" {
+			localpart, err = t.AccountDB.GetLocalpartForThreePID(ctx, r.Address, "email")
+		} else {
+			return nil, &util.JSONResponse{
+				Code: http.StatusUnauthorized,
+				JSON: jsonerror.BadJSON("'address' must be supplied."),
+			}
+		}
 		return nil, &util.JSONResponse{
 			Code: http.StatusUnauthorized,
 			JSON: jsonerror.BadJSON("'user' must be supplied."),
 		}
 	}
-	localpart, err := userutil.ParseUsernameParam(username, &t.Config.Matrix.ServerName)
+	localpart, err = userutil.ParseUsernameParam(username, &t.Config.Matrix.ServerName)
 	if err != nil {
 		return nil, &util.JSONResponse{
 			Code: http.StatusUnauthorized,
