@@ -44,17 +44,12 @@ type flow struct {
 	Type string `json:"type"`
 }
 
-func passwordLogin(cfg *config.ClientAPI) flows {
+func passwordLogin() flows {
 	f := flows{}
 	s := flow{
 		Type: "m.login.password",
 	}
 	f.Flows = append(f.Flows, s)
-	if cfg.EmailLogin {
-		f.Flows = append(f.Flows, flow{
-			Type: "m.login.password",
-		})
-	}
 	return f
 }
 
@@ -67,7 +62,7 @@ func Login(
 		// TODO: support other forms of login other than password, depending on config options
 		return util.JSONResponse{
 			Code: http.StatusOK,
-			JSON: passwordLogin(cfg),
+			JSON: passwordLogin(),
 		}
 	} else if req.Method == http.MethodPost {
 		typePassword := auth.LoginTypePassword{
