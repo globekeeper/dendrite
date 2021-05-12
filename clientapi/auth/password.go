@@ -56,21 +56,25 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 	var localpart string
 	var err error
 	username = r.Username()
-	if username == "" {
-		if r.Medium == "email" && r.Address != "" {
-			localpart, err = t.AccountDB.GetLocalpartForThreePID(ctx, r.Address, "email")
+	if username != "" {
+		localpart, err = userutil.ParseUsernameParam(username, &t.Config.Matrix.ServerName)
+	} else {
+		if r.Medium == "email" {
+			if r.Address != "" {
+				localpart, err = t.AccountDB.GetLocalpartForThreePID(ctx, r.Address, "email")
+			} else {
+				return nil, &util.JSONResponse{
+					Code: http.StatusUnauthorized,
+					JSON: jsonerror.BadJSON("'address' must be supplied."),
+				}
+			}
 		} else {
 			return nil, &util.JSONResponse{
 				Code: http.StatusUnauthorized,
-				JSON: jsonerror.BadJSON("'address' must be supplied."),
+				JSON: jsonerror.BadJSON("'user' must be supplied."),
 			}
 		}
-		return nil, &util.JSONResponse{
-			Code: http.StatusUnauthorized,
-			JSON: jsonerror.BadJSON("'user' must be supplied."),
-		}
 	}
-	localpart, err = userutil.ParseUsernameParam(username, &t.Config.Matrix.ServerName)
 	if err != nil {
 		return nil, &util.JSONResponse{
 			Code: http.StatusUnauthorized,
