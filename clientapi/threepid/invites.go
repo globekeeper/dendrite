@@ -180,7 +180,7 @@ func queryIDServer(
 // Returns an error if the request failed to send or if the response couldn't be parsed.
 func queryIDServerLookup(ctx context.Context, body *MembershipRequest) (*idServerLookupResponse, error) {
 	address := url.QueryEscape(body.Address)
-	requestURL := fmt.Sprintf("https://%s/_matrix/identity/api/v1/lookup?medium=%s&address=%s", body.IDServer, body.Medium, address)
+	requestURL := fmt.Sprintf("http://%s/_matrix/identity/api/v1/lookup?medium=%s&address=%s", body.IDServer, body.Medium, address)
 	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, err
@@ -240,7 +240,7 @@ func queryIDServerStoreInvite(
 	//      These can be easily retrieved by requesting the public rooms API
 	//      server's database.
 
-	requestURL := fmt.Sprintf("https://%s/_matrix/identity/api/v1/store-invite", body.IDServer)
+	requestURL := fmt.Sprintf("http://%s/_matrix/identity/api/v1/store-invite", body.IDServer)
 	req, err := http.NewRequest(http.MethodPost, requestURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, err
@@ -268,7 +268,7 @@ func queryIDServerStoreInvite(
 // Returns an error if the request couldn't be sent, if its body couldn't be parsed
 // or if the key couldn't be decoded from base64.
 func queryIDServerPubKey(ctx context.Context, idServerName string, keyID string) ([]byte, error) {
-	requestURL := fmt.Sprintf("https://%s/_matrix/identity/api/v1/pubkey/%s", idServerName, keyID)
+	requestURL := fmt.Sprintf("http://%s/_matrix/identity/api/v1/pubkey/%s", idServerName, keyID)
 	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, err
@@ -341,7 +341,7 @@ func emit3PIDInviteEvent(
 		StateKey: &res.Token,
 	}
 
-	validityURL := fmt.Sprintf("https://%s/_matrix/identity/api/v1/pubkey/isvalid", body.IDServer)
+	validityURL := fmt.Sprintf("http://%s/_matrix/identity/api/v1/pubkey/isvalid", body.IDServer)
 	content := gomatrixserverlib.ThirdPartyInviteContent{
 		DisplayName:    res.DisplayName,
 		KeyValidityURL: validityURL,
