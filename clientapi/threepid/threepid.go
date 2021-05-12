@@ -38,7 +38,7 @@ type EmailAssociationRequest struct {
 
 // EmailAssociationCheckRequest represents the request defined at https://matrix.org/docs/spec/client_server/r0.2.0.html#post-matrix-client-r0-account-3pid
 type EmailAssociationCheckRequest struct {
-	Creds Credentials `json:"threePidCreds"`
+	Creds Credentials `json:"three_pid_creds"`
 	Bind  bool        `json:"bind"`
 }
 
