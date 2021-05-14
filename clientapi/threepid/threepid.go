@@ -82,11 +82,6 @@ func CreateSession(
 	}
 
 	// Error if the status isn't OK
-	// log.Println(resp.StatusCode)
-	// b := bytes.Buffer{}
-	// io.Copy(&b, resp.Body)
-	// util.GetLogger(ctx).Errorf("threepid.CreateSession statusCode: %d", resp.StatusCode)
-	// util.GetLogger(ctx).Errorf("threepid.CreateSession body: %s", b.Bytes())
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("Could not create a session on the server %s, got status code: %d", req.IDServer, resp.StatusCode)
 	}
