@@ -62,6 +62,13 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 		if r.Medium == "email" {
 			if r.Address != "" {
 				localpart, err = t.AccountDB.GetLocalpartForThreePID(ctx, r.Address, "email")
+				if localpart == "" {
+					return nil, &util.JSONResponse{
+						Code: http.StatusForbidden,
+						JSON: jsonerror.Forbidden("email or password was incorrect, or the account does not exist"),
+					}
+				}
+				r.Login.User = localpart
 			} else {
 				return nil, &util.JSONResponse{
 					Code: http.StatusUnauthorized,
