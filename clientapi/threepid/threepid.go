@@ -61,7 +61,7 @@ func CreateSession(
 	}
 
 	// Create a session on the ID server
-	postURL := fmt.Sprintf("http://%s/_matrix/identity/api/v1/validate/email/requestToken", req.IDServer)
+	postURL := fmt.Sprintf("https://%s/_matrix/identity/api/v1/validate/email/requestToken", req.IDServer)
 
 	data := url.Values{}
 	data.Add("client_secret", req.Secret)
@@ -109,7 +109,7 @@ func CheckAssociation(
 		return false, "", "", err
 	}
 
-	requestURL := fmt.Sprintf("http://%s/_matrix/identity/api/v1/3pid/getValidated3pid?sid=%s&client_secret=%s", creds.IDServer, creds.SID, creds.Secret)
+	requestURL := fmt.Sprintf("https://%s/_matrix/identity/api/v1/3pid/getValidated3pid?sid=%s&client_secret=%s", creds.IDServer, creds.SID, creds.Secret)
 	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
 		return false, "", "", err
@@ -149,7 +149,7 @@ func PublishAssociation(creds Credentials, userID string, cfg *config.ClientAPI)
 		return err
 	}
 
-	postURL := fmt.Sprintf("http://%s/_matrix/identity/api/v1/3pid/bind", creds.IDServer)
+	postURL := fmt.Sprintf("https://%s/_matrix/identity/api/v1/3pid/bind", creds.IDServer)
 
 	data := url.Values{}
 	data.Add("sid", creds.SID)
