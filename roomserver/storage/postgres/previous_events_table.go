@@ -50,7 +50,7 @@ const insertPreviousEventSQL = "" +
 	"INSERT INTO roomserver_previous_events" +
 	" (previous_event_id, previous_reference_sha256, event_nids)" +
 	" VALUES ($1, $2, array_append('{}'::bigint[], $3))" +
-	" ON CONFLICT ON CONSTRAINT roomserver_previous_event_id_unique" +
+	" ON CONFLICT (previous_event_id, previous_reference_sha256)" +
 	" DO UPDATE SET event_nids = array_append(roomserver_previous_events.event_nids, $3)" +
 	" WHERE $3 != ALL(roomserver_previous_events.event_nids)"
 

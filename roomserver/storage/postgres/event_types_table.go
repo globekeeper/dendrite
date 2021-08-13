@@ -82,7 +82,7 @@ INSERT INTO roomserver_event_types (event_type_nid, event_type) VALUES
 // to the indexes.
 const insertEventTypeNIDSQL = "" +
 	"INSERT INTO roomserver_event_types (event_type) VALUES ($1)" +
-	" ON CONFLICT ON CONSTRAINT roomserver_event_type_unique" +
+	" ON CONFLICT (event_type)" +
 	" DO NOTHING RETURNING (event_type_nid)"
 
 const selectEventTypeNIDSQL = "" +

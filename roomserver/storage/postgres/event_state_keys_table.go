@@ -51,7 +51,7 @@ INSERT INTO roomserver_event_state_keys (event_state_key_nid, event_state_key) V
 // Same as insertEventTypeNIDSQL
 const insertEventStateKeyNIDSQL = "" +
 	"INSERT INTO roomserver_event_state_keys (event_state_key) VALUES ($1)" +
-	" ON CONFLICT ON CONSTRAINT roomserver_event_state_key_unique" +
+	" ON CONFLICT (event_state_key)" +
 	" DO NOTHING RETURNING (event_state_key_nid)"
 
 const selectEventStateKeyNIDSQL = "" +

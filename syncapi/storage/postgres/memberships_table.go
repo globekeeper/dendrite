@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS syncapi_memberships (
 const upsertMembershipSQL = "" +
 	"INSERT INTO syncapi_memberships (room_id, user_id, membership, event_id, stream_pos, topological_pos)" +
 	" VALUES ($1, $2, $3, $4, $5, $6)" +
-	" ON CONFLICT ON CONSTRAINT syncapi_memberships_unique" +
+	" ON CONFLICT (room_id, user_id, membership)" +
 	" DO UPDATE SET event_id = $4, stream_pos = $5, topological_pos = $6"
 
 const selectMembershipSQL = "" +
