@@ -94,8 +94,8 @@ const bulkSelectStateEventByIDSQL = "" +
 const bulkSelectStateEventByNIDSQL = "" +
 	"SELECT event_type_nid, event_state_key_nid, event_nid FROM roomserver_events" +
 	" WHERE event_nid = ANY($1)" +
-	" AND (CARDINALITY($2::bigint[]) = 0 OR event_type_nid = ANY($2))" +
-	" AND (CARDINALITY($3::bigint[]) = 0 OR event_state_key_nid = ANY($3))" +
+	" AND ($2 OR event_type_nid = ANY($3))" +
+	" AND ($4 OR event_state_key_nid = ANY($5))" +
 	" ORDER BY event_type_nid, event_state_key_nid ASC"
 
 const bulkSelectStateAtEventByIDSQL = "" +
@@ -260,7 +260,15 @@ func (s *eventStatements) BulkSelectStateEventByNID(
 	tuples := stateKeyTupleSorter(stateKeyTuples)
 	sort.Sort(tuples)
 	eventTypeNIDArray, eventStateKeyNIDArray := tuples.typesAndStateKeysAsArrays()
-	rows, err := s.bulkSelectStateEventByNIDStmt.QueryContext(ctx, eventNIDsAsArray(eventNIDs), eventTypeNIDArray, eventStateKeyNIDArray)
+	isEventTypeNIDArrayEmpty := len(eventTypeNIDArray) == 0
+	isEventStateKeyNIDArrayEmpty := len(eventStateKeyNIDArray) == 0
+	rows, err := s.bulkSelectStateEventByNIDStmt.QueryContext(
+		ctx,
+		eventNIDsAsArray(eventNIDs),
+		isEventTypeNIDArrayEmpty,
+		eventTypeNIDArray,
+		isEventStateKeyNIDArrayEmpty,
+		eventStateKeyNIDArray)
 	if err != nil {
 		return nil, err
 	}
