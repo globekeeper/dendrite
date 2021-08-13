@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS keyserver_device_keys (
 const upsertDeviceKeysSQL = "" +
 	"INSERT INTO keyserver_device_keys (user_id, device_id, ts_added_secs, key_json, stream_id, display_name)" +
 	" VALUES ($1, $2, $3, $4, $5, $6)" +
-	" ON CONFLICT ON CONSTRAINT keyserver_device_keys_unique" +
+	" ON CONFLICT (user_id, device_id)" +
 	" DO UPDATE SET key_json = $4, stream_id = $5, display_name = $6"
 
 const selectDeviceKeysSQL = "" +

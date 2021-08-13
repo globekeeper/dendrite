@@ -57,7 +57,7 @@ const upsertServerKeysSQL = "" +
 	"INSERT INTO keydb_server_keys (server_name, server_key_id," +
 	" server_name_and_key_id, valid_until_ts, expired_ts, server_key)" +
 	" VALUES ($1, $2, $3, $4, $5, $6)" +
-	" ON CONFLICT ON CONSTRAINT keydb_server_keys_unique" +
+	" ON CONFLICT (server_name, server_key_id)" +
 	" DO UPDATE SET valid_until_ts = $4, expired_ts = $5, server_key = $6"
 
 type serverKeyStatements struct {
