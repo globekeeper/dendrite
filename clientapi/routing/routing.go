@@ -37,6 +37,7 @@ import (
 	"github.com/matrix-org/dendrite/userapi/storage/accounts"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/util"
+	"github.com/sirupsen/logrus"
 )
 
 // Setup registers HTTP handlers with the given ServeMux. It also supplies the given http.Client
@@ -46,7 +47,7 @@ import (
 // applied:
 // nolint: gocyclo
 func Setup(
-	publicAPIMux *mux.Router, cfg *config.ClientAPI,
+	publicAPIMux, synapseAdminRouter *mux.Router, cfg *config.ClientAPI,
 	eduAPI eduServerAPI.EDUServerInputAPI,
 	rsAPI roomserverAPI.RoomserverInternalAPI,
 	asAPI appserviceAPI.AppServiceQueryAPI,
@@ -87,6 +88,32 @@ func Setup(
 			}
 		}),
 	).Methods(http.MethodGet, http.MethodOptions)
+
+	if cfg.RegistrationSharedSecret != "" {
+		logrus.Info("Enabling shared secret registration at /_synapse/admin/v1/register")
+		sr := NewSharedSecretRegistration(cfg.RegistrationSharedSecret)
+		synapseAdminRouter.Handle("/admin/v1/register",
+			httputil.MakeExternalAPI("shared_secret_registration", func(req *http.Request) util.JSONResponse {
+				if req.Method == http.MethodGet {
+					return util.JSONResponse{
+						Code: 200,
+						JSON: struct {
+							Nonce string `json:"nonce"`
+						}{
+							Nonce: sr.GenerateNonce(),
+						},
+					}
+				}
+				if req.Method == http.MethodPost {
+					return handleSharedSecretRegistration(userAPI, sr, req)
+				}
+				return util.JSONResponse{
+					Code: http.StatusMethodNotAllowed,
+					JSON: jsonerror.NotFound("unknown method"),
+				}
+			}),
+		).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
+	}
 
 	r0mux := publicAPIMux.PathPrefix("/r0").Subrouter()
 	unstableMux := publicAPIMux.PathPrefix("/unstable").Subrouter()
@@ -246,6 +273,14 @@ func Setup(
 			return util.ErrorResponse(err)
 		}
 		return OnIncomingStateRequest(req.Context(), device, rsAPI, vars["roomID"])
+	})).Methods(http.MethodGet, http.MethodOptions)
+
+	r0mux.Handle("/rooms/{roomID}/aliases", httputil.MakeAuthAPI("aliases", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+		vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+		if err != nil {
+			return util.ErrorResponse(err)
+		}
+		return GetAliases(req, rsAPI, device, vars["roomID"])
 	})).Methods(http.MethodGet, http.MethodOptions)
 
 	r0mux.Handle("/rooms/{roomID}/state/{type:[^/]+/?}", httputil.MakeAuthAPI("room_state", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
