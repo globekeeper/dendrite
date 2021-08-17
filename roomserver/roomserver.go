@@ -53,9 +53,11 @@ func NewInternalAPI(
 	if err != nil {
 		logrus.WithError(err).Panicf("failed to connect to room server db")
 	}
-
+	roomserverTracedDB := storage.TracedDatabase{
+		Db: roomserverDB,
+	}
 	return internal.NewRoomserverAPI(
-		cfg, roomserverDB, producer, string(cfg.Matrix.Kafka.TopicFor(config.TopicOutputRoomEvent)),
+		cfg, &roomserverTracedDB, producer, string(cfg.Matrix.Kafka.TopicFor(config.TopicOutputRoomEvent)),
 		base.Caches, keyRing, perspectiveServerNames,
 	)
 }
