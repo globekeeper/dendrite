@@ -159,7 +159,7 @@ var roomserverInputBackpressure = prometheus.NewGaugeVec(
 
 // InputRoomEvents implements api.RoomserverInternalAPI
 func (r *Inputer) InputRoomEvents(
-	_ context.Context,
+	ctx context.Context,
 	request *api.InputRoomEventsRequest,
 	response *api.InputRoomEventsResponse,
 ) {
@@ -191,7 +191,7 @@ func (r *Inputer) InputRoomEvents(
 		// the wait group, so that the worker can notify us when this specific
 		// task has been finished.
 		tasks[i] = &inputTask{
-			ctx:   context.Background(),
+			ctx:   ctx,
 			event: &request.InputRoomEvents[i],
 			wg:    wg,
 		}
