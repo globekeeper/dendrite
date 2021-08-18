@@ -23,6 +23,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/shared"
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
+	"github.com/opentracing/opentracing-go"
 )
 
 const previousEventSchema = `
@@ -86,6 +87,8 @@ func (s *previousEventStatements) InsertPreviousEvent(
 	previousEventReferenceSHA256 []byte,
 	eventNID types.EventNID,
 ) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertPreviousEvent")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.insertPreviousEventStmt)
 	_, err := stmt.ExecContext(
 		ctx, previousEventID, previousEventReferenceSHA256, int64(eventNID),
@@ -98,6 +101,8 @@ func (s *previousEventStatements) InsertPreviousEvent(
 func (s *previousEventStatements) SelectPreviousEventExists(
 	ctx context.Context, txn *sql.Tx, eventID string, eventReferenceSHA256 []byte,
 ) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectPreviousEventExists")
+	defer span.Finish()
 	var ok int64
 	stmt := sqlutil.TxStmt(txn, s.selectPreviousEventExistsStmt)
 	return stmt.QueryRowContext(ctx, eventID, eventReferenceSHA256).Scan(&ok)

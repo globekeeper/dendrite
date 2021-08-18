@@ -23,6 +23,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/shared"
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
+	"github.com/opentracing/opentracing-go"
 )
 
 const eventJSONSchema = `
@@ -76,6 +77,8 @@ func prepareEventJSONTable(db *sql.DB) (tables.EventJSON, error) {
 func (s *eventJSONStatements) InsertEventJSON(
 	ctx context.Context, txn *sql.Tx, eventNID types.EventNID, eventJSON []byte,
 ) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertEventJSON")
+	defer span.Finish()
 	_, err := s.insertEventJSONStmt.ExecContext(ctx, int64(eventNID), eventJSON)
 	return err
 }
@@ -83,6 +86,8 @@ func (s *eventJSONStatements) InsertEventJSON(
 func (s *eventJSONStatements) BulkSelectEventJSON(
 	ctx context.Context, eventNIDs []types.EventNID,
 ) ([]tables.EventJSONPair, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectEventJSON")
+	defer span.Finish()
 	rows, err := s.bulkSelectEventJSONStmt.QueryContext(ctx, eventNIDsAsArray(eventNIDs))
 	if err != nil {
 		return nil, err

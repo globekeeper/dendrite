@@ -24,6 +24,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/shared"
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
+	"github.com/opentracing/opentracing-go"
 )
 
 const inviteSchema = `
@@ -103,6 +104,8 @@ func (s *inviteStatements) InsertInviteEvent(
 	targetUserNID, senderUserNID types.EventStateKeyNID,
 	inviteEventJSON []byte,
 ) (bool, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertInviteEvent")
+	defer span.Finish()
 	result, err := sqlutil.TxStmt(txn, s.insertInviteEventStmt).ExecContext(
 		ctx, inviteEventID, roomNID, targetUserNID, senderUserNID, inviteEventJSON,
 	)
@@ -120,6 +123,8 @@ func (s *inviteStatements) UpdateInviteRetired(
 	ctx context.Context,
 	txn *sql.Tx, roomNID types.RoomNID, targetUserNID types.EventStateKeyNID,
 ) ([]string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "UpdateInviteRetired")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.updateInviteRetiredStmt)
 	rows, err := stmt.QueryContext(ctx, roomNID, targetUserNID)
 	if err != nil {
@@ -143,6 +148,8 @@ func (s *inviteStatements) SelectInviteActiveForUserInRoom(
 	ctx context.Context,
 	targetUserNID types.EventStateKeyNID, roomNID types.RoomNID,
 ) ([]types.EventStateKeyNID, []string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectInviteActiveForUserInRoom")
+	defer span.Finish()
 	rows, err := s.selectInviteActiveForUserInRoomStmt.QueryContext(
 		ctx, targetUserNID, roomNID,
 	)

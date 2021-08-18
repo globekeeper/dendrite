@@ -27,6 +27,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/util"
+	"github.com/opentracing/opentracing-go"
 )
 
 const stateDataSchema = `
@@ -90,6 +91,8 @@ func (s *stateBlockStatements) BulkInsertStateData(
 	txn *sql.Tx,
 	entries types.StateEntries,
 ) (id types.StateBlockNID, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkInsertStateData")
+	defer span.Finish()
 	entries = entries[:util.SortAndUnique(entries)]
 	var nids types.EventNIDs
 	for _, e := range entries {
@@ -104,6 +107,8 @@ func (s *stateBlockStatements) BulkInsertStateData(
 func (s *stateBlockStatements) BulkSelectStateBlockEntries(
 	ctx context.Context, stateBlockNIDs types.StateBlockNIDs,
 ) ([][]types.EventNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectStateBlockEntries")
+	defer span.Finish()
 	rows, err := s.bulkSelectStateBlockEntriesStmt.QueryContext(ctx, stateBlockNIDsAsArray(stateBlockNIDs))
 	if err != nil {
 		return nil, err

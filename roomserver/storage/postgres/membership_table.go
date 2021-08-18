@@ -27,6 +27,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/opentracing/opentracing-go"
 )
 
 const membershipSchema = `
@@ -191,6 +192,8 @@ func (s *membershipStatements) InsertMembership(
 	txn *sql.Tx, roomNID types.RoomNID, targetUserNID types.EventStateKeyNID,
 	localTarget bool,
 ) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertMembership")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.insertMembershipStmt)
 	_, err := stmt.ExecContext(ctx, roomNID, targetUserNID, localTarget)
 	return err
@@ -200,6 +203,8 @@ func (s *membershipStatements) SelectMembershipForUpdate(
 	ctx context.Context,
 	txn *sql.Tx, roomNID types.RoomNID, targetUserNID types.EventStateKeyNID,
 ) (membership tables.MembershipState, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectMembershipForUpdate")
+	defer span.Finish()
 	err = sqlutil.TxStmt(txn, s.selectMembershipForUpdateStmt).QueryRowContext(
 		ctx, roomNID, targetUserNID,
 	).Scan(&membership)
@@ -210,6 +215,8 @@ func (s *membershipStatements) SelectMembershipFromRoomAndTarget(
 	ctx context.Context,
 	roomNID types.RoomNID, targetUserNID types.EventStateKeyNID,
 ) (eventNID types.EventNID, membership tables.MembershipState, forgotten bool, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectMembershipFromRoomAndTarget")
+	defer span.Finish()
 	err = s.selectMembershipFromRoomAndTargetStmt.QueryRowContext(
 		ctx, roomNID, targetUserNID,
 	).Scan(&membership, &eventNID, &forgotten)
@@ -219,6 +226,8 @@ func (s *membershipStatements) SelectMembershipFromRoomAndTarget(
 func (s *membershipStatements) SelectMembershipsFromRoom(
 	ctx context.Context, roomNID types.RoomNID, localOnly bool,
 ) (eventNIDs []types.EventNID, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectMembershipsFromRoom")
+	defer span.Finish()
 	var stmt *sql.Stmt
 	if localOnly {
 		stmt = s.selectLocalMembershipsFromRoomStmt
@@ -245,6 +254,8 @@ func (s *membershipStatements) SelectMembershipsFromRoomAndMembership(
 	ctx context.Context,
 	roomNID types.RoomNID, membership tables.MembershipState, localOnly bool,
 ) (eventNIDs []types.EventNID, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectMembershipsFromRoomAndMembership")
+	defer span.Finish()
 	var rows *sql.Rows
 	var stmt *sql.Stmt
 	if localOnly {
@@ -273,6 +284,8 @@ func (s *membershipStatements) UpdateMembership(
 	txn *sql.Tx, roomNID types.RoomNID, targetUserNID types.EventStateKeyNID, senderUserNID types.EventStateKeyNID, membership tables.MembershipState,
 	eventNID types.EventNID, forgotten bool,
 ) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "UpdateMembership")
+	defer span.Finish()
 	_, err := sqlutil.TxStmt(txn, s.updateMembershipStmt).ExecContext(
 		ctx, roomNID, targetUserNID, senderUserNID, membership, eventNID, forgotten,
 	)
@@ -282,6 +295,8 @@ func (s *membershipStatements) UpdateMembership(
 func (s *membershipStatements) SelectRoomsWithMembership(
 	ctx context.Context, userID types.EventStateKeyNID, membershipState tables.MembershipState,
 ) ([]types.RoomNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectRoomsWithMembership")
+	defer span.Finish()
 	rows, err := s.selectRoomsWithMembershipStmt.QueryContext(ctx, membershipState, userID)
 	if err != nil {
 		return nil, err
@@ -299,6 +314,8 @@ func (s *membershipStatements) SelectRoomsWithMembership(
 }
 
 func (s *membershipStatements) SelectJoinedUsersSetForRooms(ctx context.Context, roomNIDs []types.RoomNID) (map[types.EventStateKeyNID]int, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectJoinedUsersSetForRooms")
+	defer span.Finish()
 	roomIDarray := make([]int64, len(roomNIDs))
 	for i := range roomNIDs {
 		roomIDarray[i] = int64(roomNIDs[i])
@@ -321,6 +338,8 @@ func (s *membershipStatements) SelectJoinedUsersSetForRooms(ctx context.Context,
 }
 
 func (s *membershipStatements) SelectKnownUsers(ctx context.Context, userID types.EventStateKeyNID, searchString string, limit int) ([]string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectKnownUsers")
+	defer span.Finish()
 	rows, err := s.selectKnownUsersStmt.QueryContext(ctx, userID, fmt.Sprintf("%%%s%%", searchString), limit)
 	if err != nil {
 		return nil, err
@@ -342,6 +361,8 @@ func (s *membershipStatements) UpdateForgetMembership(
 	txn *sql.Tx, roomNID types.RoomNID, targetUserNID types.EventStateKeyNID,
 	forget bool,
 ) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "UpdateForgetMembership")
+	defer span.Finish()
 	_, err := sqlutil.TxStmt(txn, s.updateMembershipForgetRoomStmt).ExecContext(
 		ctx, roomNID, targetUserNID, forget,
 	)
@@ -349,6 +370,8 @@ func (s *membershipStatements) UpdateForgetMembership(
 }
 
 func (s *membershipStatements) SelectLocalServerInRoom(ctx context.Context, roomNID types.RoomNID) (bool, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectLocalServerInRoom")
+	defer span.Finish()
 	var nid types.RoomNID
 	err := s.selectLocalServerInRoomStmt.QueryRowContext(ctx, tables.MembershipStateJoin, roomNID).Scan(&nid)
 	if err != nil {
@@ -362,6 +385,8 @@ func (s *membershipStatements) SelectLocalServerInRoom(ctx context.Context, room
 }
 
 func (s *membershipStatements) SelectServerInRoom(ctx context.Context, roomNID types.RoomNID, serverName gomatrixserverlib.ServerName) (bool, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectServerInRoom")
+	defer span.Finish()
 	var nid types.RoomNID
 	err := s.selectServerInRoomStmt.QueryRowContext(ctx, tables.MembershipStateJoin, roomNID, serverName).Scan(&nid)
 	if err != nil {

@@ -25,6 +25,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/shared"
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
+	"github.com/opentracing/opentracing-go"
 )
 
 const eventStateKeysSchema = `
@@ -96,6 +97,8 @@ func prepareEventStateKeysTable(db *sql.DB) (tables.EventStateKeys, error) {
 func (s *eventStateKeyStatements) InsertEventStateKeyNID(
 	ctx context.Context, txn *sql.Tx, eventStateKey string,
 ) (types.EventStateKeyNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertEventStateKeyNID")
+	defer span.Finish()
 	var eventStateKeyNID int64
 	stmt := sqlutil.TxStmt(txn, s.insertEventStateKeyNIDStmt)
 	err := stmt.QueryRowContext(ctx, eventStateKey).Scan(&eventStateKeyNID)
@@ -105,6 +108,8 @@ func (s *eventStateKeyStatements) InsertEventStateKeyNID(
 func (s *eventStateKeyStatements) SelectEventStateKeyNID(
 	ctx context.Context, txn *sql.Tx, eventStateKey string,
 ) (types.EventStateKeyNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectEventStateKeyNID")
+	defer span.Finish()
 	var eventStateKeyNID int64
 	stmt := sqlutil.TxStmt(txn, s.selectEventStateKeyNIDStmt)
 	err := stmt.QueryRowContext(ctx, eventStateKey).Scan(&eventStateKeyNID)
@@ -114,6 +119,8 @@ func (s *eventStateKeyStatements) SelectEventStateKeyNID(
 func (s *eventStateKeyStatements) BulkSelectEventStateKeyNID(
 	ctx context.Context, eventStateKeys []string,
 ) (map[string]types.EventStateKeyNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectEventStateKeyNID")
+	defer span.Finish()
 	rows, err := s.bulkSelectEventStateKeyNIDStmt.QueryContext(
 		ctx, pq.StringArray(eventStateKeys),
 	)
@@ -137,6 +144,8 @@ func (s *eventStateKeyStatements) BulkSelectEventStateKeyNID(
 func (s *eventStateKeyStatements) BulkSelectEventStateKey(
 	ctx context.Context, eventStateKeyNIDs []types.EventStateKeyNID,
 ) (map[types.EventStateKeyNID]string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectEventStateKey")
+	defer span.Finish()
 	nIDs := make(pq.Int64Array, len(eventStateKeyNIDs))
 	for i := range eventStateKeyNIDs {
 		nIDs[i] = int64(eventStateKeyNIDs[i])

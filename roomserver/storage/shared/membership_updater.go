@@ -8,6 +8,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/opentracing/opentracing-go"
 )
 
 type MembershipUpdater struct {
@@ -93,6 +94,9 @@ func (u *MembershipUpdater) IsKnock() bool {
 
 // SetToInvite implements types.MembershipUpdater
 func (u *MembershipUpdater) SetToInvite(event gomatrixserverlib.Event) (bool, error) {
+	span, ctx := opentracing.StartSpanFromContext(u.ctx, "SetToInvite")
+	defer span.Finish()
+	u.ctx = ctx
 	var inserted bool
 	err := u.d.Writer.Do(u.d.DB, u.txn, func(txn *sql.Tx) error {
 		senderUserNID, err := u.d.assignStateKeyNID(u.ctx, u.txn, event.Sender())

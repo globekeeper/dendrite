@@ -26,6 +26,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/opentracing/opentracing-go"
 )
 
 const roomsSchema = `
@@ -119,6 +120,8 @@ func prepareRoomsTable(db *sql.DB) (tables.Rooms, error) {
 }
 
 func (s *roomStatements) SelectRoomIDs(ctx context.Context) ([]string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectRoomIDs")
+	defer span.Finish()
 	rows, err := s.selectRoomIDsStmt.QueryContext(ctx)
 	if err != nil {
 		return nil, err
@@ -138,6 +141,8 @@ func (s *roomStatements) InsertRoomNID(
 	ctx context.Context, txn *sql.Tx,
 	roomID string, roomVersion gomatrixserverlib.RoomVersion,
 ) (types.RoomNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertRoomNID")
+	defer span.Finish()
 	var roomNID int64
 	stmt := sqlutil.TxStmt(txn, s.insertRoomNIDStmt)
 	err := stmt.QueryRowContext(ctx, roomID, roomVersion).Scan(&roomNID)
@@ -145,6 +150,8 @@ func (s *roomStatements) InsertRoomNID(
 }
 
 func (s *roomStatements) SelectRoomInfo(ctx context.Context, roomID string) (*types.RoomInfo, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertRoomNID")
+	defer span.Finish()
 	var info types.RoomInfo
 	var latestNIDs pq.Int64Array
 	err := s.selectRoomInfoStmt.QueryRowContext(ctx, roomID).Scan(
@@ -160,6 +167,8 @@ func (s *roomStatements) SelectRoomInfo(ctx context.Context, roomID string) (*ty
 func (s *roomStatements) SelectRoomNID(
 	ctx context.Context, txn *sql.Tx, roomID string,
 ) (types.RoomNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectRoomNID")
+	defer span.Finish()
 	var roomNID int64
 	stmt := sqlutil.TxStmt(txn, s.selectRoomNIDStmt)
 	err := stmt.QueryRowContext(ctx, roomID).Scan(&roomNID)
@@ -169,6 +178,8 @@ func (s *roomStatements) SelectRoomNID(
 func (s *roomStatements) SelectLatestEventNIDs(
 	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID,
 ) ([]types.EventNID, types.StateSnapshotNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectLatestEventNIDs")
+	defer span.Finish()
 	var nids pq.Int64Array
 	var stateSnapshotNID int64
 	stmt := s.selectLatestEventNIDsStmt
@@ -186,6 +197,8 @@ func (s *roomStatements) SelectLatestEventNIDs(
 func (s *roomStatements) SelectLatestEventsNIDsForUpdate(
 	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID,
 ) ([]types.EventNID, types.EventNID, types.StateSnapshotNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectLatestEventNIDs")
+	defer span.Finish()
 	var nids pq.Int64Array
 	var lastEventSentNID int64
 	var stateSnapshotNID int64
@@ -209,6 +222,8 @@ func (s *roomStatements) UpdateLatestEventNIDs(
 	lastEventSentNID types.EventNID,
 	stateSnapshotNID types.StateSnapshotNID,
 ) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "UpdateLatestEventNIDs")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.updateLatestEventNIDsStmt)
 	_, err := stmt.ExecContext(
 		ctx,
@@ -223,6 +238,8 @@ func (s *roomStatements) UpdateLatestEventNIDs(
 func (s *roomStatements) SelectRoomVersionsForRoomNIDs(
 	ctx context.Context, roomNIDs []types.RoomNID,
 ) (map[types.RoomNID]gomatrixserverlib.RoomVersion, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectRoomVersionsForRoomNIDs")
+	defer span.Finish()
 	rows, err := s.selectRoomVersionsForRoomNIDsStmt.QueryContext(ctx, roomNIDsAsArray(roomNIDs))
 	if err != nil {
 		return nil, err
@@ -241,6 +258,8 @@ func (s *roomStatements) SelectRoomVersionsForRoomNIDs(
 }
 
 func (s *roomStatements) BulkSelectRoomIDs(ctx context.Context, roomNIDs []types.RoomNID) ([]string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectRoomIDs")
+	defer span.Finish()
 	var array pq.Int64Array
 	for _, nid := range roomNIDs {
 		array = append(array, int64(nid))
@@ -262,6 +281,8 @@ func (s *roomStatements) BulkSelectRoomIDs(ctx context.Context, roomNIDs []types
 }
 
 func (s *roomStatements) BulkSelectRoomNIDs(ctx context.Context, roomIDs []string) ([]types.RoomNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectRoomNIDs")
+	defer span.Finish()
 	var array pq.StringArray
 	for _, roomID := range roomIDs {
 		array = append(array, roomID)

@@ -23,6 +23,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/roomserver/storage/shared"
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
+	"github.com/opentracing/opentracing-go"
 )
 
 const roomAliasesSchema = `
@@ -82,6 +83,8 @@ func prepareRoomAliasesTable(db *sql.DB) (tables.RoomAliases, error) {
 func (s *roomAliasesStatements) InsertRoomAlias(
 	ctx context.Context, txn *sql.Tx, alias string, roomID string, creatorUserID string,
 ) (err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertRoomAlias")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.insertRoomAliasStmt)
 	_, err = stmt.ExecContext(ctx, alias, roomID, creatorUserID)
 	return
@@ -90,6 +93,8 @@ func (s *roomAliasesStatements) InsertRoomAlias(
 func (s *roomAliasesStatements) SelectRoomIDFromAlias(
 	ctx context.Context, alias string,
 ) (roomID string, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectRoomIDFromAlias")
+	defer span.Finish()
 	err = s.selectRoomIDFromAliasStmt.QueryRowContext(ctx, alias).Scan(&roomID)
 	if err == sql.ErrNoRows {
 		return "", nil
@@ -100,6 +105,8 @@ func (s *roomAliasesStatements) SelectRoomIDFromAlias(
 func (s *roomAliasesStatements) SelectAliasesFromRoomID(
 	ctx context.Context, roomID string,
 ) ([]string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectAliasesFromRoomID")
+	defer span.Finish()
 	rows, err := s.selectAliasesFromRoomIDStmt.QueryContext(ctx, roomID)
 	if err != nil {
 		return nil, err
@@ -121,6 +128,8 @@ func (s *roomAliasesStatements) SelectAliasesFromRoomID(
 func (s *roomAliasesStatements) SelectCreatorIDFromAlias(
 	ctx context.Context, alias string,
 ) (creatorID string, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectCreatorIDFromAlias")
+	defer span.Finish()
 	err = s.selectCreatorIDFromAliasStmt.QueryRowContext(ctx, alias).Scan(&creatorID)
 	if err == sql.ErrNoRows {
 		return "", nil
@@ -131,6 +140,8 @@ func (s *roomAliasesStatements) SelectCreatorIDFromAlias(
 func (s *roomAliasesStatements) DeleteRoomAlias(
 	ctx context.Context, txn *sql.Tx, alias string,
 ) (err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "DeleteRoomAlias")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.deleteRoomAliasStmt)
 	_, err = stmt.ExecContext(ctx, alias)
 	return

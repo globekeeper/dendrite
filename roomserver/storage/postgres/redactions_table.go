@@ -21,6 +21,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/roomserver/storage/shared"
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
+	"github.com/opentracing/opentracing-go"
 )
 
 const redactionsSchema = `
@@ -79,6 +80,8 @@ func prepareRedactionsTable(db *sql.DB) (tables.Redactions, error) {
 func (s *redactionStatements) InsertRedaction(
 	ctx context.Context, txn *sql.Tx, info tables.RedactionInfo,
 ) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertRedaction")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.insertRedactionStmt)
 	_, err := stmt.ExecContext(ctx, info.RedactionEventID, info.RedactsEventID, info.Validated)
 	return err
@@ -87,6 +90,8 @@ func (s *redactionStatements) InsertRedaction(
 func (s *redactionStatements) SelectRedactionInfoByRedactionEventID(
 	ctx context.Context, txn *sql.Tx, redactionEventID string,
 ) (info *tables.RedactionInfo, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectRedactionInfoByRedactionEventID")
+	defer span.Finish()
 	info = &tables.RedactionInfo{}
 	stmt := sqlutil.TxStmt(txn, s.selectRedactionInfoByRedactionEventIDStmt)
 	err = stmt.QueryRowContext(ctx, redactionEventID).Scan(
@@ -102,6 +107,8 @@ func (s *redactionStatements) SelectRedactionInfoByRedactionEventID(
 func (s *redactionStatements) SelectRedactionInfoByEventBeingRedacted(
 	ctx context.Context, txn *sql.Tx, eventID string,
 ) (info *tables.RedactionInfo, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectRedactionInfoByEventBeingRedacted")
+	defer span.Finish()
 	info = &tables.RedactionInfo{}
 	stmt := sqlutil.TxStmt(txn, s.selectRedactionInfoByEventBeingRedactedStmt)
 	err = stmt.QueryRowContext(ctx, eventID).Scan(
@@ -117,6 +124,8 @@ func (s *redactionStatements) SelectRedactionInfoByEventBeingRedacted(
 func (s *redactionStatements) MarkRedactionValidated(
 	ctx context.Context, txn *sql.Tx, redactionEventID string, validated bool,
 ) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "MarkRedactionValidated")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.markRedactionValidatedStmt)
 	_, err := stmt.ExecContext(ctx, redactionEventID, validated)
 	return err

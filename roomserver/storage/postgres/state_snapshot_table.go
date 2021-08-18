@@ -26,6 +26,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/util"
+	"github.com/opentracing/opentracing-go"
 )
 
 const stateSnapshotSchema = `
@@ -95,6 +96,8 @@ func prepareStateSnapshotTable(db *sql.DB) (tables.StateSnapshot, error) {
 func (s *stateSnapshotStatements) InsertState(
 	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, nids types.StateBlockNIDs,
 ) (stateNID types.StateSnapshotNID, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertState")
+	defer span.Finish()
 	nids = nids[:util.SortAndUnique(nids)]
 	var id int64
 	err = sqlutil.TxStmt(txn, s.insertStateStmt).QueryRowContext(ctx, nids.Hash(), int64(roomNID), stateBlockNIDsAsArray(nids)).Scan(&id)
@@ -108,6 +111,8 @@ func (s *stateSnapshotStatements) InsertState(
 func (s *stateSnapshotStatements) BulkSelectStateBlockNIDs(
 	ctx context.Context, stateNIDs []types.StateSnapshotNID,
 ) ([]types.StateBlockNIDList, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectStateBlockNIDs")
+	defer span.Finish()
 	nids := make([]int64, len(stateNIDs))
 	for i := range stateNIDs {
 		nids[i] = int64(stateNIDs[i])

@@ -25,6 +25,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/shared"
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
+	"github.com/opentracing/opentracing-go"
 )
 
 const eventTypesSchema = `
@@ -118,6 +119,8 @@ func prepareEventTypesTable(db *sql.DB) (tables.EventTypes, error) {
 func (s *eventTypeStatements) InsertEventTypeNID(
 	ctx context.Context, txn *sql.Tx, eventType string,
 ) (types.EventTypeNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertEventTypeNID")
+	defer span.Finish()
 	var eventTypeNID int64
 	stmt := sqlutil.TxStmt(txn, s.insertEventTypeNIDStmt)
 	err := stmt.QueryRowContext(ctx, eventType).Scan(&eventTypeNID)
@@ -127,6 +130,8 @@ func (s *eventTypeStatements) InsertEventTypeNID(
 func (s *eventTypeStatements) SelectEventTypeNID(
 	ctx context.Context, txn *sql.Tx, eventType string,
 ) (types.EventTypeNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectEventTypeNID")
+	defer span.Finish()
 	var eventTypeNID int64
 	stmt := sqlutil.TxStmt(txn, s.selectEventTypeNIDStmt)
 	err := stmt.QueryRowContext(ctx, eventType).Scan(&eventTypeNID)
@@ -136,6 +141,8 @@ func (s *eventTypeStatements) SelectEventTypeNID(
 func (s *eventTypeStatements) BulkSelectEventTypeNID(
 	ctx context.Context, eventTypes []string,
 ) (map[string]types.EventTypeNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectEventTypeNID")
+	defer span.Finish()
 	rows, err := s.bulkSelectEventTypeNIDStmt.QueryContext(ctx, pq.StringArray(eventTypes))
 	if err != nil {
 		return nil, err

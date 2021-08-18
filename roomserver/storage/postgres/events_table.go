@@ -28,6 +28,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/opentracing/opentracing-go"
 )
 
 const eventsSchema = `
@@ -191,6 +192,8 @@ func (s *eventStatements) InsertEvent(
 	depth int64,
 	isRejected bool,
 ) (types.EventNID, types.StateSnapshotNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertEvent")
+	defer span.Finish()
 	var eventNID int64
 	var stateNID int64
 	err := s.insertEventStmt.QueryRowContext(
@@ -204,6 +207,8 @@ func (s *eventStatements) InsertEvent(
 func (s *eventStatements) SelectEvent(
 	ctx context.Context, txn *sql.Tx, eventID string,
 ) (types.EventNID, types.StateSnapshotNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectEvent")
+	defer span.Finish()
 	var eventNID int64
 	var stateNID int64
 	err := s.selectEventStmt.QueryRowContext(ctx, eventID).Scan(&eventNID, &stateNID)
@@ -215,6 +220,8 @@ func (s *eventStatements) SelectEvent(
 func (s *eventStatements) BulkSelectStateEventByID(
 	ctx context.Context, eventIDs []string,
 ) ([]types.StateEntry, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectStateEventByID")
+	defer span.Finish()
 	rows, err := s.bulkSelectStateEventByIDStmt.QueryContext(ctx, pq.StringArray(eventIDs))
 	if err != nil {
 		return nil, err
@@ -258,6 +265,8 @@ func (s *eventStatements) BulkSelectStateEventByNID(
 	ctx context.Context, eventNIDs []types.EventNID,
 	stateKeyTuples []types.StateKeyTuple,
 ) ([]types.StateEntry, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectStateEventByNID")
+	defer span.Finish()
 	tuples := stateKeyTupleSorter(stateKeyTuples)
 	sort.Sort(tuples)
 	eventTypeNIDArray, eventStateKeyNIDArray := tuples.typesAndStateKeysAsArrays()
@@ -302,6 +311,8 @@ func (s *eventStatements) BulkSelectStateEventByNID(
 func (s *eventStatements) BulkSelectStateAtEventByID(
 	ctx context.Context, eventIDs []string,
 ) ([]types.StateAtEvent, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectStateAtEventByID")
+	defer span.Finish()
 	rows, err := s.bulkSelectStateAtEventByIDStmt.QueryContext(ctx, pq.StringArray(eventIDs))
 	if err != nil {
 		return nil, err
@@ -340,6 +351,8 @@ func (s *eventStatements) BulkSelectStateAtEventByID(
 func (s *eventStatements) UpdateEventState(
 	ctx context.Context, txn *sql.Tx, eventNID types.EventNID, stateNID types.StateSnapshotNID,
 ) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "UpdateEventState")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.updateEventStateStmt)
 	_, err := stmt.ExecContext(ctx, int64(eventNID), int64(stateNID))
 	return err
@@ -348,12 +361,16 @@ func (s *eventStatements) UpdateEventState(
 func (s *eventStatements) SelectEventSentToOutput(
 	ctx context.Context, txn *sql.Tx, eventNID types.EventNID,
 ) (sentToOutput bool, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectEventSentToOutput")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.selectEventSentToOutputStmt)
 	err = stmt.QueryRowContext(ctx, int64(eventNID)).Scan(&sentToOutput)
 	return
 }
 
 func (s *eventStatements) UpdateEventSentToOutput(ctx context.Context, txn *sql.Tx, eventNID types.EventNID) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "UpdateEventSentToOutput")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.updateEventSentToOutputStmt)
 	_, err := stmt.ExecContext(ctx, int64(eventNID))
 	return err
@@ -362,6 +379,8 @@ func (s *eventStatements) UpdateEventSentToOutput(ctx context.Context, txn *sql.
 func (s *eventStatements) SelectEventID(
 	ctx context.Context, txn *sql.Tx, eventNID types.EventNID,
 ) (eventID string, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectEventID")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.selectEventIDStmt)
 	err = stmt.QueryRowContext(ctx, int64(eventNID)).Scan(&eventID)
 	return
@@ -370,6 +389,8 @@ func (s *eventStatements) SelectEventID(
 func (s *eventStatements) BulkSelectStateAtEventAndReference(
 	ctx context.Context, txn *sql.Tx, eventNIDs []types.EventNID,
 ) ([]types.StateAtEventAndReference, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectStateAtEventAndReference")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.bulkSelectStateAtEventAndReferenceStmt)
 	rows, err := stmt.QueryContext(ctx, eventNIDsAsArray(eventNIDs))
 	if err != nil {
@@ -412,6 +433,8 @@ func (s *eventStatements) BulkSelectStateAtEventAndReference(
 func (s *eventStatements) BulkSelectEventReference(
 	ctx context.Context, txn *sql.Tx, eventNIDs []types.EventNID,
 ) ([]gomatrixserverlib.EventReference, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectEventReference")
+	defer span.Finish()
 	rows, err := s.bulkSelectEventReferenceStmt.QueryContext(ctx, eventNIDsAsArray(eventNIDs))
 	if err != nil {
 		return nil, err
@@ -436,6 +459,8 @@ func (s *eventStatements) BulkSelectEventReference(
 
 // bulkSelectEventID returns a map from numeric event ID to string event ID.
 func (s *eventStatements) BulkSelectEventID(ctx context.Context, eventNIDs []types.EventNID) (map[types.EventNID]string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectEventID")
+	defer span.Finish()
 	rows, err := s.bulkSelectEventIDStmt.QueryContext(ctx, eventNIDsAsArray(eventNIDs))
 	if err != nil {
 		return nil, err
@@ -463,6 +488,8 @@ func (s *eventStatements) BulkSelectEventID(ctx context.Context, eventNIDs []typ
 // bulkSelectEventNIDs returns a map from string event ID to numeric event ID.
 // If an event ID is not in the database then it is omitted from the map.
 func (s *eventStatements) BulkSelectEventNID(ctx context.Context, eventIDs []string) (map[string]types.EventNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "BulkSelectEventNID")
+	defer span.Finish()
 	rows, err := s.bulkSelectEventNIDStmt.QueryContext(ctx, pq.StringArray(eventIDs))
 	if err != nil {
 		return nil, err
@@ -481,6 +508,8 @@ func (s *eventStatements) BulkSelectEventNID(ctx context.Context, eventIDs []str
 }
 
 func (s *eventStatements) SelectMaxEventDepth(ctx context.Context, txn *sql.Tx, eventNIDs []types.EventNID) (int64, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectMaxEventDepth")
+	defer span.Finish()
 	var result int64
 	stmt := s.selectMaxEventDepthStmt
 	err := stmt.QueryRowContext(ctx, eventNIDsAsArray(eventNIDs)).Scan(&result)
@@ -493,6 +522,8 @@ func (s *eventStatements) SelectMaxEventDepth(ctx context.Context, txn *sql.Tx, 
 func (s *eventStatements) SelectRoomNIDsForEventNIDs(
 	ctx context.Context, eventNIDs []types.EventNID,
 ) (map[types.EventNID]types.RoomNID, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectRoomNIDsForEventNIDs")
+	defer span.Finish()
 	rows, err := s.selectRoomNIDsForEventNIDsStmt.QueryContext(ctx, eventNIDsAsArray(eventNIDs))
 	if err != nil {
 		return nil, err

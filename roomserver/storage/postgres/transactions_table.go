@@ -21,6 +21,7 @@ import (
 
 	"github.com/matrix-org/dendrite/roomserver/storage/shared"
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
+	"github.com/opentracing/opentracing-go"
 )
 
 const transactionsSchema = `
@@ -75,6 +76,8 @@ func (s *transactionStatements) InsertTransaction(
 	userID string,
 	eventID string,
 ) (err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertTransaction")
+	defer span.Finish()
 	_, err = s.insertTransactionStmt.ExecContext(
 		ctx, transactionID, sessionID, userID, eventID,
 	)
@@ -87,6 +90,8 @@ func (s *transactionStatements) SelectTransactionEventID(
 	sessionID int64,
 	userID string,
 ) (eventID string, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectTransactionEventID")
+	defer span.Finish()
 	err = s.selectTransactionEventIDStmt.QueryRowContext(
 		ctx, transactionID, sessionID, userID,
 	).Scan(&eventID)

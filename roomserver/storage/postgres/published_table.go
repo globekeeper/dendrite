@@ -22,6 +22,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/roomserver/storage/shared"
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
+	"github.com/opentracing/opentracing-go"
 )
 
 const publishedSchema = `
@@ -68,6 +69,8 @@ func preparePublishedTable(db *sql.DB) (tables.Published, error) {
 func (s *publishedStatements) UpsertRoomPublished(
 	ctx context.Context, txn *sql.Tx, roomID string, published bool,
 ) (err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "UpsertRoomPublished")
+	defer span.Finish()
 	stmt := sqlutil.TxStmt(txn, s.upsertPublishedStmt)
 	_, err = stmt.ExecContext(ctx, roomID, published)
 	return
@@ -76,6 +79,8 @@ func (s *publishedStatements) UpsertRoomPublished(
 func (s *publishedStatements) SelectPublishedFromRoomID(
 	ctx context.Context, roomID string,
 ) (published bool, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectPublishedFromRoomID")
+	defer span.Finish()
 	err = s.selectPublishedStmt.QueryRowContext(ctx, roomID).Scan(&published)
 	if err == sql.ErrNoRows {
 		return false, nil
@@ -86,6 +91,8 @@ func (s *publishedStatements) SelectPublishedFromRoomID(
 func (s *publishedStatements) SelectAllPublishedRooms(
 	ctx context.Context, published bool,
 ) ([]string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SelectAllPublishedRooms")
+	defer span.Finish()
 	rows, err := s.selectAllPublishedStmt.QueryContext(ctx, published)
 	if err != nil {
 		return nil, err
