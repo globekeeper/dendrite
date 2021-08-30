@@ -27,6 +27,8 @@ func rollback(txn *sql.Tx) {
 }
 
 func NewLatestEventsUpdater(ctx context.Context, d *Database, txn *sql.Tx, roomInfo types.RoomInfo) (*LatestEventsUpdater, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "NewLatestEventsUpdater")
+	defer span.Finish()
 	eventNIDs, lastEventNIDSent, currentStateSnapshotNID, err :=
 		d.RoomsTable.SelectLatestEventsNIDsForUpdate(ctx, txn, roomInfo.RoomNID)
 	if err != nil {
