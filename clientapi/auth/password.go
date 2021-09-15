@@ -26,6 +26,8 @@ import (
 	"github.com/matrix-org/util"
 )
 
+const email = "email"
+
 type GetAccountByPassword func(ctx context.Context, localpart, password string) (*api.Account, error)
 
 type PasswordRequest struct {
@@ -59,9 +61,9 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 	if username != "" {
 		localpart, err = userutil.ParseUsernameParam(username, &t.Config.Matrix.ServerName)
 	} else {
-		if r.Medium == "email" {
+		if r.Medium == email {
 			if r.Address != "" {
-				localpart, err = t.AccountDB.GetLocalpartForThreePID(ctx, r.Address, "email")
+				localpart, err = t.AccountDB.GetLocalpartForThreePID(ctx, r.Address, email)
 				if localpart == "" {
 					return nil, &util.JSONResponse{
 						Code: http.StatusForbidden,
@@ -94,7 +96,7 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 		// but that would leak the existence of the user.
 		return nil, &util.JSONResponse{
 			Code: http.StatusForbidden,
-			JSON: jsonerror.Forbidden("username or password was incorrect, or the account does not exist"),
+			JSON: jsonerror.Forbidden("The username or password was incorrect or the account does not exist."),
 		}
 	}
 	return &r.Login, nil

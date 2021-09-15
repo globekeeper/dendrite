@@ -540,3 +540,19 @@ Key notary server must not overwrite a valid key with a spurious result from the
 GET /rooms/:room_id/aliases lists aliases
 Only room members can list aliases of a room
 Users with sufficient power-level can delete other's aliases
+Can create backup version
+Can update backup version
+Responds correctly when backup is empty
+Can backup keys
+Can update keys with better versions
+Will not update keys with worse versions
+Will not back up to an old backup version
+Can create more than 10 backup versions
+Can delete backup
+Deleted & recreated backups are empty
+Can upload self-signing keys
+Fails to upload self-signing keys with no auth
+Fails to upload self-signing key without master key
+can fetch self-signing keys over federation
+Changing master key notifies local users
+Changing user-signing key notifies local users
