@@ -170,7 +170,7 @@ func PublishAssociation(creds Credentials, userID string, cfg *config.ClientAPI)
 
 	// Error if the status isn't OK
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Could not publish the association on the server %s", creds.IDServer)
+		return fmt.Errorf("could not publish the association on the server %s", creds.IDServer)
 	}
 
 	return nil
