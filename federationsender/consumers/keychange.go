@@ -30,7 +30,6 @@ import (
 	"github.com/matrix-org/dendrite/setup/process"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
 )
 
 // KeyChangeConsumer consumes events that originate in key server.
@@ -159,50 +158,6 @@ func (t *KeyChangeConsumer) onCrossSigningMessage(m api.DeviceMessage) error {
 		return nil
 	}
 	logger := logrus.WithField("user_id", output.UserID)
-
-	var queryRes roomserverAPI.QueryRoomsForUserResponse
-	err = t.rsAPI.QueryRoomsForUser(context.Background(), &roomserverAPI.QueryRoomsForUserRequest{
-		UserID:         output.UserID,
-		WantMembership: "join",
-	}, &queryRes)
-	if err != nil {
-		logger.WithError(err).Error("fedsender key change consumer: failed to calculate joined rooms for user")
-		return nil
-	}
-	// send this key change to all servers who share rooms with this user.
-	destinations, err := t.db.GetJoinedHostsForRooms(context.Background(), queryRes.RoomIDs)
-	if err != nil {
-		logger.WithError(err).Error("fedsender key change consumer: failed to calculate joined hosts for rooms user is in")
-		return nil
-	}
-
-	// Pack the EDU and marshal it
-	edu := &gomatrixserverlib.EDU{
-		Type:   eduserverAPI.MSigningKeyUpdate,
-		Origin: string(t.serverName),
-	}
-	if edu.Content, err = json.Marshal(output); err != nil {
-		logger.WithError(err).Error("fedsender key change consumer: failed to marshal output, dropping")
-		return nil
-	}
-
-	logger.Infof("Sending cross-signing update message to %q", destinations)
-	return t.queues.SendEDU(edu, t.serverName, destinations)
-}
-
-func (t *KeyChangeConsumer) onCrossSigningMessage(m api.DeviceMessage) error {
-	output := m.CrossSigningKeyUpdate
-	_, host, err := gomatrixserverlib.SplitID('@', output.UserID)
-	if err != nil {
-		logrus.WithError(err).Errorf("fedsender key change consumer: user ID parse failure")
-		return nil
-	}
-	if host != gomatrixserverlib.ServerName(t.serverName) {
-		// Ignore any messages that didn't originate locally, otherwise we'll
-		// end up parroting information we received from other servers.
-		return nil
-	}
-	logger := log.WithField("user_id", output.UserID)
 
 	var queryRes roomserverAPI.QueryRoomsForUserResponse
 	err = t.rsAPI.QueryRoomsForUser(context.Background(), &roomserverAPI.QueryRoomsForUserRequest{
