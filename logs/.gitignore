@@ -1,0 +1,5 @@
+# Ignore everything in this directory
+*
+# Except this file
+!.gitignore
+# We want this empty directory so that podman can mount it to sytest container (in contradiction to docker it will not create source directory)

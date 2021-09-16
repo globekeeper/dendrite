@@ -5,6 +5,7 @@
 
 # Allow GitHub config
 !.github
+!.gitignore
 
 # Downloads
 /.downloads
@@ -22,7 +23,7 @@
 /_test
 /vendor/bin
 /docker/build
-/logs
+
 
 # Architecture specific extensions/prefixes
 *.[568vq]
