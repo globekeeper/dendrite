@@ -22,7 +22,6 @@
 /_test
 /vendor/bin
 /docker/build
-/logs
 
 # Architecture specific extensions/prefixes
 *.[568vq]
