@@ -18,7 +18,7 @@ func LoadLastSeenTSIP(m *sqlutil.Migrations) {
 
 func UpLastSeenTSIP(tx *sql.Tx) error {
 	_, err := tx.Exec(`
-ALTER TABLE device_devices ADD COLUMN IF NOT EXISTS last_seen_ts BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)*1000;
+ALTER TABLE device_devices ADD COLUMN IF NOT EXISTS last_seen_ts BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::int*1000;
 ALTER TABLE device_devices ADD COLUMN IF NOT EXISTS ip TEXT;
 ALTER TABLE device_devices ADD COLUMN IF NOT EXISTS user_agent TEXT;`)
 	if err != nil {

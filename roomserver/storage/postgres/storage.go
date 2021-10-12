@@ -52,7 +52,7 @@ func Open(dbProperties *config.DatabaseOptions, cache caching.RoomServerCaches) 
 	// schemas.
 	m := sqlutil.NewMigrations()
 	deltas.LoadAddForgottenColumn(m)
-	deltas.LoadStateBlocksRefactor(m)
+	// deltas.LoadStateBlocksRefactor(m)
 	if err := m.RunDeltas(db, dbProperties); err != nil {
 		return nil, err
 	}

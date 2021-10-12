@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS keyserver_key_changes (
 const upsertKeyChangeSQL = "" +
 	"INSERT INTO keyserver_key_changes (partition, log_offset, user_id)" +
 	" VALUES ($1, $2, $3)" +
-	" ON CONFLICT ON CONSTRAINT keyserver_key_changes_unique" +
+	" ON CONFLICT (partition, log_offset)" +
 	" DO UPDATE SET user_id = $3"
 
 // select the highest offset for each user in the range. The grouping by user gives distinct entries and then we just
