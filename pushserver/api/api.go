@@ -19,7 +19,7 @@ type QueryPushersResponse struct {
 }
 
 type PerformPusherSetRequest struct {
-	Pusher    Pusher
+	Pusher
 	Localpart string
 	Append    bool `json:"append"`
 }
