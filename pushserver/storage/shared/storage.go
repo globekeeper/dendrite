@@ -21,7 +21,7 @@ func (d *Database) Prepare() (err error) {
 	return
 }
 
-func (d *Database) CreatePusher(
+func (d *Database) UpsertPusher(
 	ctx context.Context, p api.Pusher, localpart string,
 ) error {
 	data, err := json.Marshal(p.Data)
