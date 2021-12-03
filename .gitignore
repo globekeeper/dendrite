@@ -63,3 +63,5 @@ test/wasm/node_modules
 
 # Ignore complement folder when running locally
 complement
+
+media_store/

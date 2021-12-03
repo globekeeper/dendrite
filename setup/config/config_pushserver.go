@@ -8,15 +8,17 @@ type PushServer struct {
 	Database DatabaseOptions `yaml:"database"`
 }
 
-func (c *PushServer) Defaults() {
+func (c *PushServer) Defaults(generate bool) {
 	c.InternalAPI.Listen = "http://localhost:7783"
 	c.InternalAPI.Connect = "http://localhost:7783"
-	c.Database.Defaults(10)
-	c.Database.ConnectionString = "file:pushserver.db"
+	c.Database.Defaults(5)
+	if generate {
+		c.Database.ConnectionString = "file:pushserver.db"
+	}
 }
 
 func (c *PushServer) Verify(configErrs *ConfigErrors, isMonolith bool) {
 	checkURL(configErrs, "room_server.internal_api.listen", string(c.InternalAPI.Listen))
-	checkURL(configErrs, "room_server.internal_ap.bind", string(c.InternalAPI.Connect))
+	checkURL(configErrs, "room_server.internal_ap.connect", string(c.InternalAPI.Connect))
 	checkNotEmpty(configErrs, "room_server.database.connection_string", string(c.Database.ConnectionString))
 }

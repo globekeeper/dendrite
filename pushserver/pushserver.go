@@ -7,7 +7,7 @@ import (
 	"github.com/matrix-org/dendrite/pushserver/inthttp"
 	"github.com/matrix-org/dendrite/pushserver/storage"
 	roomserverAPI "github.com/matrix-org/dendrite/roomserver/api"
-	"github.com/matrix-org/dendrite/setup"
+	"github.com/matrix-org/dendrite/setup/base"
 	"github.com/sirupsen/logrus"
 )
 
@@ -20,7 +20,7 @@ func AddInternalRoutes(router *mux.Router, intAPI api.PushserverInternalAPI) {
 // NewInternalAPI returns a concerete implementation of the internal API. Callers
 // can call functions directly on the returned API or via an HTTP interface using AddInternalRoutes.
 func NewInternalAPI(
-	base *setup.BaseDendrite,
+	base *base.BaseDendrite,
 	rsAPI roomserverAPI.RoomserverInternalAPI,
 ) api.PushserverInternalAPI {
 	cfg := &base.Cfg.PushServer
