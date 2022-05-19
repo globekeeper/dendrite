@@ -33,12 +33,14 @@ type GetAccountByPassword func(ctx context.Context, req *api.QueryAccountByPassw
 type PasswordRequest struct {
 	Login
 	Password string `json:"password"`
+	Address  string `json:"address"`
+	Medium   string `json:"medium"`
 }
 
 // LoginTypePassword implements https://matrix.org/docs/spec/client_server/r0.6.1#password-based
 type LoginTypePassword struct {
-	GetAccountByPassword GetAccountByPassword
-	Config               *config.ClientAPI
+	UserApi api.ClientUserAPI
+	Config  *config.ClientAPI
 }
 
 func (t *LoginTypePassword) Name() string {
@@ -61,7 +63,28 @@ func (t *LoginTypePassword) LoginFromJSON(ctx context.Context, reqBytes []byte) 
 
 func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login, *util.JSONResponse) {
 	r := req.(*PasswordRequest)
-	username := strings.ToLower(r.Username())
+	if r.Identifier.Address != "" {
+		r.Address = r.Identifier.Address
+	}
+	if r.Identifier.Medium != "" {
+		r.Medium = r.Identifier.Medium
+	}
+	var username string
+	if r.Medium == "email" && r.Address != "" {
+		res := api.QueryLocalpartForThreePIDResponse{}
+		err := t.UserApi.QueryLocalpartForThreePID(ctx, &api.QueryLocalpartForThreePIDRequest{
+			ThreePID: r.Address,
+			Medium:   "email",
+		}, &res)
+		if err != nil {
+			util.GetLogger(ctx).WithError(err).Error("userApi.QueryLocalpartForThreePID failed")
+			resp := jsonerror.InternalServerError()
+			return nil, &resp
+		}
+		username = res.Localpart
+	} else {
+		username = strings.ToLower(r.Username())
+	}
 	if username == "" {
 		return nil, &util.JSONResponse{
 			Code: http.StatusUnauthorized,
@@ -77,7 +100,7 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 	}
 	// Squash username to all lowercase letters
 	res := &api.QueryAccountByPasswordResponse{}
-	err = t.GetAccountByPassword(ctx, &api.QueryAccountByPasswordRequest{Localpart: strings.ToLower(localpart), PlaintextPassword: r.Password}, res)
+	err = t.UserApi.QueryAccountByPassword(ctx, &api.QueryAccountByPasswordRequest{Localpart: strings.ToLower(localpart), PlaintextPassword: r.Password}, res)
 	if err != nil {
 		return nil, &util.JSONResponse{
 			Code: http.StatusInternalServerError,
@@ -86,7 +109,7 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 	}
 
 	if !res.Exists {
-		err = t.GetAccountByPassword(ctx, &api.QueryAccountByPasswordRequest{
+		err = t.UserApi.QueryAccountByPassword(ctx, &api.QueryAccountByPasswordRequest{
 			Localpart:         localpart,
 			PlaintextPassword: r.Password,
 		}, res)

@@ -49,6 +49,8 @@ type ClientAPI struct {
 	RateLimiting RateLimiting `yaml:"rate_limiting"`
 
 	MSCs *MSCs `yaml:"mscs"`
+
+	ThreePidDelegate string `yaml:"three_pid_delegate"`
 }
 
 func (c *ClientAPI) Defaults(generate bool) {
