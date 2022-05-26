@@ -128,5 +128,12 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 			}
 		}
 	}
-	return &r.Login, nil
+	return &Login{
+		LoginIdentifier: LoginIdentifier{
+			Type:    r.Type,
+			User:    username,
+			Medium:  r.Medium,
+			Address: r.Address,
+		},
+	}, nil
 }

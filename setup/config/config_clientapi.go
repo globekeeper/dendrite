@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"time"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 type ClientAPI struct {
@@ -52,7 +54,7 @@ type ClientAPI struct {
 
 	ThreePidDelegate string `yaml:"three_pid_delegate"`
 
-	JwtConfig `yaml:"jwt_config"`
+	JwtConfig JwtConfig `yaml:"jwt_config"`
 }
 
 type JwtConfig struct {
@@ -60,11 +62,8 @@ type JwtConfig struct {
 	Algorithm string `yaml:"algorithm"`
 	Issuer    string `yaml:"issuer"`
 	Secret    string `yaml:"secret"`
-	Audiences `yaml:"audiences"`
-}
-
-type Audiences struct {
-	Homeserver string `yaml:"homeserver"`
+	SecretKey ed25519.PublicKey
+	Audiences []string `yaml:"audiences"`
 }
 
 func (c *ClientAPI) Defaults(generate bool) {
