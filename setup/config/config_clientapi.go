@@ -51,6 +51,20 @@ type ClientAPI struct {
 	MSCs *MSCs `yaml:"mscs"`
 
 	ThreePidDelegate string `yaml:"three_pid_delegate"`
+
+	JwtConfig `yaml:"jwt_config"`
+}
+
+type JwtConfig struct {
+	Enabled   bool   `yaml:"enabled"`
+	Algorithm string `yaml:"algorithm"`
+	Issuer    string `yaml:"issuer"`
+	Secret    string `yaml:"secret"`
+	Audiences `yaml:"audiences"`
+}
+
+type Audiences struct {
+	Homeserver string `yaml:"homeserver"`
 }
 
 func (c *ClientAPI) Defaults(generate bool) {

@@ -21,6 +21,7 @@ require (
 	github.com/frankban/quicktest v1.14.3 // indirect
 	github.com/getsentry/sentry-go v0.13.0
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/gologme/log v1.3.0
 	github.com/google/go-cmp v0.5.8
 	github.com/google/uuid v1.3.0

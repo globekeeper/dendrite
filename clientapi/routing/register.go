@@ -722,7 +722,7 @@ func handleRegistrationFlow(
 		}
 	}
 
-	var threePid authtypes.ThreePID
+	var threePid *authtypes.ThreePID
 	switch r.Auth.Type {
 	case authtypes.LoginTypeRecaptcha:
 		// Check given captcha response
@@ -740,12 +740,13 @@ func handleRegistrationFlow(
 		sessions.addCompletedSessionStage(sessionID, authtypes.LoginTypeDummy)
 
 	case authtypes.LoginTypeEmail:
+		threePid = &authtypes.ThreePID{}
 		r.Auth.ThreePidCreds.IDServer = cfg.ThreePidDelegate
 		var (
 			bound bool
 			err   error
 		)
-		bound, threePid.Medium, threePid.Address, err = threepid.CheckAssociation(req.Context(), r.Auth.ThreePidCreds, cfg)
+		bound, threePid.Address, threePid.Medium, err = threepid.CheckAssociation(req.Context(), r.Auth.ThreePidCreds, cfg)
 		if err != nil {
 			util.GetLogger(req.Context()).WithError(err).Error("threepid.CheckAssociation failed")
 			return jsonerror.InternalServerError()
@@ -776,7 +777,7 @@ func handleRegistrationFlow(
 	// A response with current registration flow and remaining available methods
 	// will be returned if a flow has not been successfully completed yet
 	return checkAndCompleteFlow(sessions.getCompletedStages(sessionID),
-		req, r, sessionID, cfg, userAPI, &threePid)
+		req, r, sessionID, cfg, userAPI, threePid)
 }
 
 // handleApplicationServiceRegistration handles the registration of an
