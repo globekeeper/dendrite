@@ -9,7 +9,7 @@
             "args": [
                 "-really-enable-open-registration",
                 "-config",
-                "/Users/danielaloni/repos/adminas/.ci/config/dendrite/dendrite.yaml"
+                "../../../adminas/.ci/config/dendrite/dendrite.yaml"
             ]
         }
     ]
