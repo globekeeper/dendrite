@@ -71,6 +71,7 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 	}
 	var username string
 	if r.Medium == "email" && r.Address != "" {
+		r.Address = strings.ToLower(r.Address)
 		res := api.QueryLocalpartForThreePIDResponse{}
 		err := t.UserApi.QueryLocalpartForThreePID(ctx, &api.QueryLocalpartForThreePIDRequest{
 			ThreePID: r.Address,
@@ -82,6 +83,12 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 			return nil, &resp
 		}
 		username = res.Localpart
+		if username == "" {
+			return nil, &util.JSONResponse{
+				Code: http.StatusUnauthorized,
+				JSON: jsonerror.Forbidden("Invalid username or password"),
+			}
+		}
 	} else {
 		username = strings.ToLower(r.Username())
 	}
@@ -124,7 +131,7 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 		if !res.Exists {
 			return nil, &util.JSONResponse{
 				Code: http.StatusForbidden,
-				JSON: jsonerror.Forbidden("The username or password was incorrect or the account does not exist."),
+				JSON: jsonerror.Forbidden("Invalid username or password"),
 			}
 		}
 	}
