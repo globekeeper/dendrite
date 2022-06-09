@@ -23,6 +23,7 @@ import (
 
 	"github.com/matrix-org/dendrite/clientapi/auth/authtypes"
 	"github.com/matrix-org/dendrite/clientapi/jsonerror"
+	"github.com/matrix-org/dendrite/clientapi/ratelimit"
 	"github.com/matrix-org/dendrite/setup/config"
 	uapi "github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/util"
@@ -33,7 +34,7 @@ import (
 // called after authorization has completed, with the result of the authorization.
 // If the final return value is non-nil, an error occurred and the cleanup function
 // is nil.
-func LoginFromJSONReader(ctx context.Context, r io.Reader, useraccountAPI uapi.ClientUserAPI, cfg *config.ClientAPI) (*Login, LoginCleanupFunc, *util.JSONResponse) {
+func LoginFromJSONReader(ctx context.Context, r io.Reader, useraccountAPI uapi.ClientUserAPI, cfg *config.ClientAPI, rt *ratelimit.RtFailedLogin) (*Login, LoginCleanupFunc, *util.JSONResponse) {
 	reqBytes, err := ioutil.ReadAll(r)
 	if err != nil {
 		err := &util.JSONResponse{
@@ -60,6 +61,7 @@ func LoginFromJSONReader(ctx context.Context, r io.Reader, useraccountAPI uapi.C
 		typ = &LoginTypePassword{
 			UserApi: useraccountAPI,
 			Config:  cfg,
+			rt:      rt,
 		}
 	case authtypes.LoginTypeToken:
 		typ = &LoginTypeToken{

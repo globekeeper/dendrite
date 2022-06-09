@@ -22,6 +22,7 @@ import (
 	"github.com/matrix-org/dendrite/clientapi/auth/authtypes"
 	"github.com/matrix-org/dendrite/clientapi/httputil"
 	"github.com/matrix-org/dendrite/clientapi/jsonerror"
+	"github.com/matrix-org/dendrite/clientapi/ratelimit"
 	"github.com/matrix-org/dendrite/clientapi/userutil"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/userapi/api"
@@ -41,6 +42,7 @@ type PasswordRequest struct {
 type LoginTypePassword struct {
 	UserApi api.ClientUserAPI
 	Config  *config.ClientAPI
+	rt      *ratelimit.RtFailedLogin
 }
 
 func (t *LoginTypePassword) Name() string {
@@ -107,7 +109,15 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 	}
 	// Squash username to all lowercase letters
 	res := &api.QueryAccountByPasswordResponse{}
-	err = t.UserApi.QueryAccountByPassword(ctx, &api.QueryAccountByPasswordRequest{Localpart: strings.ToLower(localpart), PlaintextPassword: r.Password}, res)
+	localpart = strings.ToLower(localpart)
+	ok, retryIn := t.rt.CanAct(localpart)
+	if !ok {
+		return nil, &util.JSONResponse{
+			Code: http.StatusTooManyRequests,
+			JSON: jsonerror.LimitExceeded("Too Many Requests", retryIn.Milliseconds()),
+		}
+	}
+	err = t.UserApi.QueryAccountByPassword(ctx, &api.QueryAccountByPasswordRequest{Localpart: localpart, PlaintextPassword: r.Password}, res)
 	if err != nil {
 		return nil, &util.JSONResponse{
 			Code: http.StatusInternalServerError,
@@ -129,6 +139,7 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 		// Technically we could tell them if the user does not exist by checking if err == sql.ErrNoRows
 		// but that would leak the existence of the user.
 		if !res.Exists {
+			t.rt.Act(localpart)
 			return nil, &util.JSONResponse{
 				Code: http.StatusForbidden,
 				JSON: jsonerror.Forbidden("Invalid username or password"),

@@ -38,6 +38,7 @@ require (
 	github.com/matrix-org/gomatrixserverlib v0.0.0-20220531163017-35e1cabf12ee
 	github.com/matrix-org/pinecone v0.0.0-20220408153826-2999ea29ed48
 	github.com/matrix-org/util v0.0.0-20200807132607-55161520e1d4
+	github.com/matryer/is v1.4.0
 	github.com/mattn/go-sqlite3 v1.14.13
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/miekg/dns v1.1.49 // indirect

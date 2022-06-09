@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/matrix-org/dendrite/clientapi/ratelimit"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -48,7 +49,8 @@ type ClientAPI struct {
 	TURN TURN `yaml:"turn"`
 
 	// Rate-limiting options
-	RateLimiting RateLimiting `yaml:"rate_limiting"`
+	RateLimiting  RateLimiting                  `yaml:"rate_limiting"`
+	RtFailedLogin ratelimit.RtFailedLoginConfig `yaml:"rate_limiting_failed_login"`
 
 	MSCs *MSCs `yaml:"mscs"`
 
