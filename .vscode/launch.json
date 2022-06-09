@@ -9,8 +9,8 @@
             "args": [
                 "-really-enable-open-registration",
                 "-config",
-                "../../../adminas/.ci/config/dendrite/dendrite.yaml"
-            ]
+                "../../../adminas/.ci/config/dendrite-local/dendrite.yaml"
+            ],
         }
     ]
 }
