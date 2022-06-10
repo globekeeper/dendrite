@@ -1,6 +1,7 @@
 package routing
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/matrix-org/dendrite/clientapi/auth"
@@ -169,11 +170,23 @@ func Password(
 
 	// If the request asks us to log out all other devices then
 	// ask the user API to do that.
+
 	if r.LogoutDevices {
-		logoutReq := &api.PerformDeviceDeletionRequest{
-			UserID:         device.UserID,
-			DeviceIDs:      nil,
-			ExceptDeviceID: device.ID,
+		var logoutReq *api.PerformDeviceDeletionRequest
+		var sessionId int64
+		if device == nil {
+			logoutReq = &api.PerformDeviceDeletionRequest{
+				UserID:    fmt.Sprintf("@%s:%s", localpart, cfg.Matrix.ServerName),
+				DeviceIDs: []string{},
+			}
+			sessionId = 0
+		} else {
+			logoutReq = &api.PerformDeviceDeletionRequest{
+				UserID:         device.UserID,
+				DeviceIDs:      nil,
+				ExceptDeviceID: device.ID,
+			}
+			sessionId = device.SessionID
 		}
 		logoutRes := &api.PerformDeviceDeletionResponse{}
 		if err := userAPI.PerformDeviceDeletion(req.Context(), logoutReq, logoutRes); err != nil {
@@ -183,7 +196,7 @@ func Password(
 
 		pushersReq := &api.PerformPusherDeletionRequest{
 			Localpart: localpart,
-			SessionID: device.SessionID,
+			SessionID: sessionId,
 		}
 		if err := userAPI.PerformPusherDeletion(req.Context(), pushersReq, &struct{}{}); err != nil {
 			util.GetLogger(req.Context()).WithError(err).Error("PerformPusherDeletion failed")
