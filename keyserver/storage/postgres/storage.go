@@ -54,7 +54,7 @@ func NewDatabase(base *base.BaseDendrite, dbProperties *config.DatabaseOptions) 
 		return nil, err
 	}
 	m := sqlutil.NewMigrations()
-	deltas.LoadRefactorKeyChanges(m)
+	// deltas.LoadRefactorKeyChanges(m)
 	deltas.LoadFixCrossSigningSignatureIndexes(m)
 	if err = m.RunDeltas(db, dbProperties); err != nil {
 		return nil, err

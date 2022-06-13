@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS keyserver_key_changes (
 const upsertKeyChangeSQL = "" +
 	"INSERT INTO keyserver_key_changes (user_id)" +
 	" VALUES ($1)" +
-	" ON CONFLICT ON CONSTRAINT keyserver_key_changes_unique_per_user" +
+	" ON CONFLICT (user_id)" +
 	" DO UPDATE SET change_id = nextval('keyserver_key_changes_seq')" +
 	" RETURNING change_id"
 

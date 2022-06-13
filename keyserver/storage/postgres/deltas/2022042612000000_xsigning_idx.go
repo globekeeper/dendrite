@@ -27,7 +27,7 @@ func LoadFixCrossSigningSignatureIndexes(m *sqlutil.Migrations) {
 
 func UpFixCrossSigningSignatureIndexes(tx *sql.Tx) error {
 	_, err := tx.Exec(`
-		ALTER TABLE keyserver_cross_signing_sigs DROP CONSTRAINT keyserver_cross_signing_sigs_pkey;
+		ALTER TABLE keyserver_cross_signing_sigs DROP CONSTRAINT "primary";
 		ALTER TABLE keyserver_cross_signing_sigs ADD PRIMARY KEY (origin_user_id, origin_key_id, target_user_id, target_key_id);
 
 		CREATE INDEX IF NOT EXISTS keyserver_cross_signing_sigs_idx ON keyserver_cross_signing_sigs (origin_user_id, target_user_id, target_key_id);
@@ -40,7 +40,7 @@ func UpFixCrossSigningSignatureIndexes(tx *sql.Tx) error {
 
 func DownFixCrossSigningSignatureIndexes(tx *sql.Tx) error {
 	_, err := tx.Exec(`
-		ALTER TABLE keyserver_cross_signing_sigs DROP CONSTRAINT keyserver_cross_signing_sigs_pkey;
+		ALTER TABLE keyserver_cross_signing_sigs DROP CONSTRAINT "primary";
 		ALTER TABLE keyserver_cross_signing_sigs ADD PRIMARY KEY (origin_user_id, target_user_id, target_key_id);
 
 		DROP INDEX IF EXISTS keyserver_cross_signing_sigs_idx;

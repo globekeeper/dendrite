@@ -1,7 +1,10 @@
 package sqlutil
 
 import (
+	"context"
 	"database/sql"
+
+	"github.com/cockroachdb/cockroach-go/v2/crdb"
 )
 
 // DummyWriter implements sqlutil.Writer.
@@ -19,9 +22,7 @@ func NewDummyWriter() Writer {
 
 func (w *DummyWriter) Do(db *sql.DB, txn *sql.Tx, f func(txn *sql.Tx) error) error {
 	if db != nil && txn == nil {
-		return WithTransaction(db, func(txn *sql.Tx) error {
-			return f(txn)
-		})
+		return crdb.ExecuteTx(context.Background(), db, nil, f)
 	} else {
 		return f(txn)
 	}

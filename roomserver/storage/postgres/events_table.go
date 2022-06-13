@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS roomserver_events (
 const insertEventSQL = "" +
 	"INSERT INTO roomserver_events AS e (room_nid, event_type_nid, event_state_key_nid, event_id, reference_sha256, auth_event_nids, depth, is_rejected)" +
 	" VALUES ($1, $2, $3, $4, $5, $6, $7, $8)" +
-	" ON CONFLICT ON CONSTRAINT roomserver_event_id_unique DO UPDATE" +
+	" ON CONFLICT (event_id) DO UPDATE" +
 	" SET is_rejected = $8 WHERE e.event_id = $4 AND e.is_rejected = FALSE" +
 	" RETURNING event_nid, state_snapshot_nid"
 
@@ -94,8 +94,8 @@ const bulkSelectStateEventByIDSQL = "" +
 const bulkSelectStateEventByNIDSQL = "" +
 	"SELECT event_type_nid, event_state_key_nid, event_nid FROM roomserver_events" +
 	" WHERE event_nid = ANY($1)" +
-	" AND (CARDINALITY($2::bigint[]) = 0 OR event_type_nid = ANY($2))" +
-	" AND (CARDINALITY($3::bigint[]) = 0 OR event_state_key_nid = ANY($3))" +
+	" AND ($2 OR event_type_nid = ANY($3))" +
+	" AND ($4 OR event_state_key_nid = ANY($5))" +
 	" ORDER BY event_type_nid, event_state_key_nid ASC"
 
 const bulkSelectStateAtEventByIDSQL = "" +
@@ -268,7 +268,15 @@ func (s *eventStatements) BulkSelectStateEventByNID(
 	sort.Sort(tuples)
 	eventTypeNIDArray, eventStateKeyNIDArray := tuples.TypesAndStateKeysAsArrays()
 	stmt := sqlutil.TxStmt(txn, s.bulkSelectStateEventByNIDStmt)
-	rows, err := stmt.QueryContext(ctx, eventNIDsAsArray(eventNIDs), pq.Int64Array(eventTypeNIDArray), pq.Int64Array(eventStateKeyNIDArray))
+	isEventTypeNIDArrayEmpty := len(eventTypeNIDArray) == 0
+	isEventStateKeyNIDArrayEmpty := len(eventStateKeyNIDArray) == 0
+	rows, err := stmt.QueryContext(
+		ctx,
+		eventNIDsAsArray(eventNIDs),
+		isEventTypeNIDArrayEmpty,
+		pq.Int64Array(eventTypeNIDArray),
+		isEventStateKeyNIDArrayEmpty,
+		pq.Int64Array(eventStateKeyNIDArray))
 	if err != nil {
 		return nil, err
 	}

@@ -46,7 +46,7 @@ CREATE INDEX IF NOT EXISTS keyserver_one_time_keys_idx ON keyserver_one_time_key
 const upsertKeysSQL = "" +
 	"INSERT INTO keyserver_one_time_keys (user_id, device_id, key_id, algorithm, ts_added_secs, key_json)" +
 	" VALUES ($1, $2, $3, $4, $5, $6)" +
-	" ON CONFLICT ON CONSTRAINT keyserver_one_time_keys_unique" +
+	" ON CONFLICT (user_id, device_id, key_id, algorithm)" +
 	" DO UPDATE SET key_json = $6"
 
 const selectKeysSQL = "" +
