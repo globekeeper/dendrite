@@ -45,12 +45,13 @@ func (t *LoginTypeTokenJwt) LoginFromJSON(ctx context.Context, reqBytes []byte) 
 	c := &Claims{}
 	token, err := jwt.ParseWithClaims(r.Token, c, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", t.Config.JwtConfig.Algorithm)
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Method.Alg())
 		}
 		return t.Config.JwtConfig.SecretKey, nil
 	})
 
 	if err != nil {
+		util.GetLogger(ctx).WithError(err).Error("jwt.ParseWithClaims failed")
 		return nil, nil, &util.JSONResponse{
 			Code: http.StatusForbidden,
 			JSON: jsonerror.Forbidden("Couldn't parse JWT"),
