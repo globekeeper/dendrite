@@ -20,7 +20,6 @@ import (
 	"net/http"
 
 	"github.com/matrix-org/dendrite/clientapi/jsonerror"
-	"github.com/matrix-org/dendrite/clientapi/ratelimit"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/util"
@@ -114,7 +113,6 @@ func NewUserInteractive(userAccountAPI api.ClientUserAPI, cfg *config.ClientAPI)
 	typePassword := &LoginTypePassword{
 		UserApi: userAccountAPI,
 		Config:  cfg,
-		rt:      &ratelimit.RtFailedLogin{},
 	}
 	return &UserInteractive{
 		Flows: []userInteractiveFlow{

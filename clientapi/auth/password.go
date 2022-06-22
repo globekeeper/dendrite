@@ -44,7 +44,7 @@ const email = "email"
 type LoginTypePassword struct {
 	UserApi api.ClientUserAPI
 	Config  *config.ClientAPI
-	rt      *ratelimit.RtFailedLogin
+	Rt      *ratelimit.RtFailedLogin
 }
 
 func (t *LoginTypePassword) Name() string {
@@ -112,11 +112,13 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 	// Squash username to all lowercase letters
 	res := &api.QueryAccountByPasswordResponse{}
 	localpart = strings.ToLower(localpart)
-	ok, retryIn := t.rt.CanAct(localpart)
-	if !ok {
-		return nil, &util.JSONResponse{
-			Code: http.StatusTooManyRequests,
-			JSON: jsonerror.LimitExceeded("Too Many Requests", retryIn.Milliseconds()),
+	if t.Rt != nil {
+		ok, retryIn := t.Rt.CanAct(localpart)
+		if !ok {
+			return nil, &util.JSONResponse{
+				Code: http.StatusTooManyRequests,
+				JSON: jsonerror.LimitExceeded("Too Many Requests", retryIn.Milliseconds()),
+			}
 		}
 	}
 	err = t.UserApi.QueryAccountByPassword(ctx, &api.QueryAccountByPasswordRequest{Localpart: localpart, PlaintextPassword: r.Password}, res)
@@ -141,7 +143,9 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 		// Technically we could tell them if the user does not exist by checking if err == sql.ErrNoRows
 		// but that would leak the existence of the user.
 		if !res.Exists {
-			t.rt.Act(localpart)
+			if t.Rt != nil {
+				t.Rt.Act(localpart)
+			}
 			return nil, &util.JSONResponse{
 				Code: http.StatusForbidden,
 				JSON: jsonerror.Forbidden("Invalid username or password"),

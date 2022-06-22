@@ -27,22 +27,20 @@ type RtFailedLoginConfig struct {
 
 // New creates a new rate limiter for the limit and interval.
 func NewRtFailedLogin(cfg *RtFailedLoginConfig) *RtFailedLogin {
+	if !cfg.Enabled {
+		return nil
+	}
 	rt := &RtFailedLogin{
 		cfg: cfg,
 		mtx: sync.RWMutex{},
 		rts: make(map[string]*rateLimit),
 	}
-	if cfg != nil && cfg.Enabled {
-		go rt.clean()
-	}
+	go rt.clean()
 	return rt
 }
 
 // CanAct is expected to be called before Act
 func (r *RtFailedLogin) CanAct(key string) (ok bool, remaining time.Duration) {
-	if r.cfg == nil || !r.cfg.Enabled {
-		return true, 0
-	}
 	r.mtx.RLock()
 	rt, ok := r.rts[key]
 	r.mtx.RUnlock()
@@ -54,9 +52,6 @@ func (r *RtFailedLogin) CanAct(key string) (ok bool, remaining time.Duration) {
 
 // Act can be called after CanAct returns true.
 func (r *RtFailedLogin) Act(key string) {
-	if r.cfg == nil || !r.cfg.Enabled {
-		return
-	}
 	r.mtx.RLock()
 	rt, ok := r.rts[key]
 	r.mtx.RUnlock()
