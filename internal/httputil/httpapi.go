@@ -83,9 +83,9 @@ func MakeAuthAPI(
 	return MakeExternalAPI(metricsName, h)
 }
 
-// MakeContitionalAuthAPI turns a util.JSONRequestHandler function into an http.Handler which authenticates the request.
+// MakeConditionalAuthAPI turns a util.JSONRequestHandler function into an http.Handler which authenticates the request.
 // It passes nil device if header is not provided.
-func MakeContitionalAuthAPI(
+func MakeConditionalAuthAPI(
 	metricsName string, userAPI userapi.QueryAcccessTokenAPI,
 	f func(*http.Request, *userapi.Device) util.JSONResponse,
 ) http.Handler {
