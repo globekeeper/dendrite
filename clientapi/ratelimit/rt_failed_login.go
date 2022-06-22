@@ -32,7 +32,7 @@ func NewRtFailedLogin(cfg *RtFailedLoginConfig) *RtFailedLogin {
 		mtx: sync.RWMutex{},
 		rts: make(map[string]*rateLimit),
 	}
-	if cfg.Enabled {
+	if cfg != nil && cfg.Enabled {
 		go rt.clean()
 	}
 	return rt
@@ -40,7 +40,7 @@ func NewRtFailedLogin(cfg *RtFailedLoginConfig) *RtFailedLogin {
 
 // CanAct is expected to be called before Act
 func (r *RtFailedLogin) CanAct(key string) (ok bool, remaining time.Duration) {
-	if !r.cfg.Enabled {
+	if r.cfg == nil || !r.cfg.Enabled {
 		return true, 0
 	}
 	r.mtx.RLock()
@@ -54,7 +54,7 @@ func (r *RtFailedLogin) CanAct(key string) (ok bool, remaining time.Duration) {
 
 // Act can be called after CanAct returns true.
 func (r *RtFailedLogin) Act(key string) {
-	if !r.cfg.Enabled {
+	if r.cfg == nil || !r.cfg.Enabled {
 		return
 	}
 	r.mtx.RLock()

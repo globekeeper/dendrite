@@ -69,8 +69,11 @@ func TestLoginFromJSONReader(t *testing.T) {
 				Matrix: &config.Global{
 					ServerName: serverName,
 				},
+				RtFailedLogin: ratelimit.RtFailedLoginConfig{
+					Enabled: false,
+				},
 			}
-			login, cleanup, err := LoginFromJSONReader(ctx, strings.NewReader(tst.Body), &userAPI, cfg, nil)
+			login, cleanup, err := LoginFromJSONReader(ctx, strings.NewReader(tst.Body), &userAPI, cfg, &ratelimit.RtFailedLogin{})
 			if err != nil {
 				t.Fatalf("LoginFromJSONReader failed: %+v", err)
 			}
@@ -148,7 +151,7 @@ func TestBadLoginFromJSONReader(t *testing.T) {
 					ServerName: serverName,
 				},
 			}
-			_, cleanup, errRes := LoginFromJSONReader(ctx, strings.NewReader(tst.Body), &userAPI, cfg, ratelimit.NewRtFailedLogin(&ratelimit.RtFailedLoginConfig{Enabled: false}))
+			_, cleanup, errRes := LoginFromJSONReader(ctx, strings.NewReader(tst.Body), &userAPI, cfg, &ratelimit.RtFailedLogin{})
 			if errRes == nil {
 				cleanup(ctx, nil)
 				t.Fatalf("LoginFromJSONReader err: got %+v, want code %q", errRes, tst.WantErrCode)
