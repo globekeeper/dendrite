@@ -137,11 +137,7 @@ func Password(
 				Code: http.StatusUnauthorized,
 				JSON: newUserInteractiveResponse(
 					sessionID,
-					[]authtypes.Flow{
-						{
-							Stages: []authtypes.LoginType{authtypes.LoginTypePassword},
-						},
-					},
+					flows,
 					nil,
 				),
 			}

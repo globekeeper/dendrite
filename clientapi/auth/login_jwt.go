@@ -28,6 +28,8 @@ type Claims struct {
 	jwt.StandardClaims
 }
 
+const mIdUser = "m.id.user"
+
 // LoginFromJSON implements Type. The cleanup function deletes the token from
 // the database on success.
 func (t *LoginTypeTokenJwt) LoginFromJSON(ctx context.Context, reqBytes []byte) (*Login, LoginCleanupFunc, *util.JSONResponse) {
@@ -66,7 +68,7 @@ func (t *LoginTypeTokenJwt) LoginFromJSON(ctx context.Context, reqBytes []byte) 
 	}
 
 	r.Login.Identifier.User = c.Subject
-	r.Login.Identifier.Type = "m.id.user"
+	r.Login.Identifier.Type = mIdUser
 
 	return &r.Login, func(context.Context, *util.JSONResponse) {}, nil
 }

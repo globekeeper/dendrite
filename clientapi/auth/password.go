@@ -38,6 +38,8 @@ type PasswordRequest struct {
 	Medium   string `json:"medium"`
 }
 
+const email = "email"
+
 // LoginTypePassword implements https://matrix.org/docs/spec/client_server/r0.6.1#password-based
 type LoginTypePassword struct {
 	UserApi api.ClientUserAPI
@@ -72,12 +74,12 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 		r.Medium = r.Identifier.Medium
 	}
 	var username string
-	if r.Medium == "email" && r.Address != "" {
+	if r.Medium == email && r.Address != "" {
 		r.Address = strings.ToLower(r.Address)
 		res := api.QueryLocalpartForThreePIDResponse{}
 		err := t.UserApi.QueryLocalpartForThreePID(ctx, &api.QueryLocalpartForThreePIDRequest{
 			ThreePID: r.Address,
-			Medium:   "email",
+			Medium:   email,
 		}, &res)
 		if err != nil {
 			util.GetLogger(ctx).WithError(err).Error("userApi.QueryLocalpartForThreePID failed")

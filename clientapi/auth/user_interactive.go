@@ -74,7 +74,7 @@ type Login struct {
 
 // Username returns the user localpart/user_id in this request, if it exists.
 func (r *Login) Username() string {
-	if r.Identifier.Type == "m.id.user" {
+	if r.Identifier.Type == mIdUser {
 		return r.Identifier.User
 	}
 	// deprecated but without it Element iOS won't log in
@@ -87,8 +87,8 @@ func (r *Login) ThirdPartyID() (medium, address string) {
 		return r.Identifier.Medium, r.Identifier.Address
 	}
 	// deprecated
-	if r.Medium == "email" {
-		return "email", r.Address
+	if r.Medium == email {
+		return email, r.Address
 	}
 	return "", ""
 }
