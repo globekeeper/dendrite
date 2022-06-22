@@ -255,7 +255,8 @@ func loadConfig(
 	}
 	if c.ClientAPI.JwtConfig.Enabled {
 		pubPki, _ := pem.Decode([]byte(c.ClientAPI.JwtConfig.Secret))
-		pub, err := x509.ParsePKIXPublicKey(pubPki.Bytes)
+		var pub interface{}
+		pub, err = x509.ParsePKIXPublicKey(pubPki.Bytes)
 		if err != nil {
 			return nil, err
 		}
