@@ -2,14 +2,12 @@ package ratelimit
 
 import (
 	"container/list"
-	"log"
 	"sync"
 	"time"
 )
 
 type rateLimit struct {
 	cfg   *RtFailedLoginConfig
-	mtx   sync.Mutex
 	times *list.List
 }
 
@@ -43,29 +41,28 @@ func NewRtFailedLogin(cfg *RtFailedLoginConfig) *RtFailedLogin {
 func (r *RtFailedLogin) CanAct(key string) (ok bool, remaining time.Duration) {
 	r.mtx.RLock()
 	rt, ok := r.rts[key]
-	r.mtx.RUnlock()
 	if !ok {
+		r.mtx.RUnlock()
 		return true, 0
 	}
-	return rt.canAct()
+	ok, remaining = rt.canAct()
+	r.mtx.RUnlock()
+	return
 }
 
 // Act can be called after CanAct returns true.
 func (r *RtFailedLogin) Act(key string) {
-	r.mtx.RLock()
+	r.mtx.Lock()
 	rt, ok := r.rts[key]
-	r.mtx.RUnlock()
 	if !ok {
 		rt = &rateLimit{
 			cfg:   r.cfg,
-			mtx:   sync.Mutex{},
 			times: list.New(),
 		}
-		r.mtx.Lock()
 		r.rts[key] = rt
-		r.mtx.Unlock()
 	}
 	rt.act()
+	r.mtx.Unlock()
 }
 
 func (r *RtFailedLogin) clean() {
@@ -82,15 +79,17 @@ func (r *RtFailedLogin) clean() {
 }
 
 func (r *rateLimit) empty() bool {
-	v := r.times.Back().Value
+	back := r.times.Back()
+	if back == nil {
+		return true
+	}
+	v := back.Value
 	b := v.(time.Time)
 	now := time.Now()
 	return now.Sub(b) > r.cfg.Interval
 }
 
 func (r *rateLimit) canAct() (ok bool, remaining time.Duration) {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
 	now := time.Now()
 	l := r.times.Len()
 	if l < r.cfg.Limit {
@@ -106,11 +105,8 @@ func (r *rateLimit) canAct() (ok bool, remaining time.Duration) {
 }
 
 func (r *rateLimit) act() {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
 	now := time.Now()
 	l := r.times.Len()
-	log.Print("len act: ", l)
 	if l < r.cfg.Limit {
 		r.times.PushBack(now)
 		return
