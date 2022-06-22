@@ -253,13 +253,14 @@ func loadConfig(
 
 		c.Global.OldVerifyKeys[i].KeyID, c.Global.OldVerifyKeys[i].PrivateKey = keyID, privateKey
 	}
-
-	pubPki, _ := pem.Decode([]byte(c.ClientAPI.JwtConfig.Secret))
-	pub, err := x509.ParsePKIXPublicKey(pubPki.Bytes)
-	if err != nil {
-		return nil, err
+	if c.ClientAPI.JwtConfig.Enabled {
+		pubPki, _ := pem.Decode([]byte(c.ClientAPI.JwtConfig.Secret))
+		pub, err := x509.ParsePKIXPublicKey(pubPki.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		c.ClientAPI.JwtConfig.SecretKey = pub.(ed25519.PublicKey)
 	}
-	c.ClientAPI.JwtConfig.SecretKey = pub.(ed25519.PublicKey)
 
 	c.MediaAPI.AbsBasePath = Path(absPath(basePath, c.MediaAPI.BasePath))
 
