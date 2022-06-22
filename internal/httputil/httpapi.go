@@ -94,7 +94,7 @@ func MakeContitionalAuthAPI(
 			jsonRes util.JSONResponse
 			dev     *userapi.Device
 		)
-		if req.Header.Get("Authorization") == "" {
+		if _, err := auth.ExtractAccessToken(req); err != nil {
 			dev = nil
 		} else {
 			logger := util.GetLogger(req.Context())
