@@ -80,7 +80,7 @@ func worker(client *http.Client, db storage.Database, ws *types.ApplicationServi
 		ws.WaitForNewEvents(id)
 
 		// Batch events up into a transaction
-		transactionJSON, txnID, maxEventID, _, err := createTransaction(ctx, db, ws.AppService.ID)
+		transactionJSON, txnID, maxEventID, err := createTransaction(ctx, db, ws.AppService.ID)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"appservice": ws.AppService.ID,
@@ -148,11 +148,10 @@ func createTransaction(
 ) (
 	transactionJSON []byte,
 	txnID, maxID int,
-	eventsRemaining bool,
 	err error,
 ) {
 	// Retrieve the latest events from the DB (will return old events if they weren't successfully sent)
-	txnID, maxID, events, eventsRemaining, err := db.GetEventsWithAppServiceID(ctx, appserviceID, transactionBatchSize)
+	txnID, maxID, events, err := db.GetEventsWithAppServiceID(ctx, appserviceID, transactionBatchSize)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"appservice": appserviceID,
@@ -166,12 +165,12 @@ func createTransaction(
 		// If not, grab next available ID from the DB
 		txnID, err = db.GetLatestTxnID(ctx)
 		if err != nil {
-			return nil, 0, 0, false, err
+			return nil, 0, 0, err
 		}
 
 		// Mark new events with current transactionID
 		if err = db.UpdateTxnIDForEvents(ctx, appserviceID, maxID, txnID); err != nil {
-			return nil, 0, 0, false, err
+			return nil, 0, 0, err
 		}
 	}
 
