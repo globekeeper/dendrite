@@ -9,7 +9,7 @@ import (
 
 func TestRtFailedLogin(t *testing.T) {
 	is := is.New(t)
-	dut := NewRtFailedLogin(&RtFailedLoginConfig{
+	rtfl := NewRtFailedLogin(&RtFailedLoginConfig{
 		Enabled:  true,
 		Limit:    3,
 		Interval: 10 * time.Millisecond,
@@ -20,21 +20,21 @@ func TestRtFailedLogin(t *testing.T) {
 		remainingB time.Duration
 	)
 	for i := 0; i < 3; i++ {
-		can, remaining = dut.CanAct("foo")
+		can, remaining = rtfl.CanAct("foo")
 		is.True(can)
 		is.Equal(remaining, time.Duration(0))
-		dut.Act("foo")
+		rtfl.Act("foo")
 	}
-	can, remaining = dut.CanAct("foo")
+	can, remaining = rtfl.CanAct("foo")
 	is.True(!can)
 	is.True(remaining > time.Millisecond*9)
-	can, remainingB = dut.CanAct("bar")
+	can, remainingB = rtfl.CanAct("bar")
 	is.True(can)
 	is.Equal(remainingB, time.Duration(0))
-	dut.Act("bar")
-	dut.Act("bar")
+	rtfl.Act("bar")
+	rtfl.Act("bar")
 	time.Sleep(remaining + time.Millisecond)
-	can, remaining = dut.CanAct("foo")
+	can, remaining = rtfl.CanAct("foo")
 	is.True(can)
 	is.Equal(remaining, time.Duration(0))
 }
