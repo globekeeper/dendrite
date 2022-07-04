@@ -560,7 +560,7 @@ func (s *OutputStreamEventConsumer) notifyHTTP(ctx context.Context, event *gomat
 		}
 	}
 
-	logger.Debugf("Notifying push gateway %s", url)
+	logger.Debugf("Notifying push gateway %s: req: %+v counts: %+v content: %s", url, req, req.Notification.Counts, req.Notification.Content)
 	var res pushgateway.NotifyResponse
 	if err := s.pgClient.Notify(ctx, url, &req, &res); err != nil {
 		logger.WithError(err).Errorf("Failed to notify push gateway %s", url)
