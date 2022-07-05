@@ -45,6 +45,8 @@ var (
 )
 
 func main() {
+	logrus.SetLevel(logrus.TraceLevel)
+	logrus.Trace("test trace")
 	cfg := setup.ParseFlags(true)
 	httpAddr := config.HTTPAddress("http://" + *httpBindAddr)
 	httpsAddr := config.HTTPAddress("https://" + *httpsBindAddr)
