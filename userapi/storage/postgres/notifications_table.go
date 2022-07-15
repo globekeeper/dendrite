@@ -73,7 +73,7 @@ const selectNotificationSQL = "" +
 const selectNotificationCountSQL = "" +
 	"SELECT COUNT(DISTINCT(room_id)) FROM userapi_notifications WHERE localpart = $1 AND (" +
 	"(($2 & 1) <> 0 AND highlight) OR (($2 & 2) <> 0 AND NOT highlight)" +
-	") AND NOT read GROUP BY room_id"
+	") AND NOT read"
 
 const selectRoomNotificationCountsSQL = "" +
 	"SELECT COUNT(*), COUNT(*) FILTER (WHERE highlight) FROM userapi_notifications " +
