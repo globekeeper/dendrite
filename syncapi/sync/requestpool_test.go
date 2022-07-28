@@ -106,7 +106,7 @@ func TestRequestPool_updatePresence(t *testing.T) {
 		},
 	}
 	rp := &RequestPool{
-		presence: &syncMap,
+		Presence: &syncMap,
 		producer: publisher,
 		consumer: consumer,
 		cfg: &config.SyncAPI{
