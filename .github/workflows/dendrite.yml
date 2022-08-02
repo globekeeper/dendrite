@@ -197,7 +197,8 @@ jobs:
           name: Sytest Logs - ${{ job.status }} - (Dendrite, ${{ join(matrix.*, ', ') }})
           path: |
             /logs/results.tap
-            /logs/**/*.log*
+            /logs/server-0/dendrite-logs/Monolith.log
+            /logs/server-1/dendrite-logs/Monolith.log
 
   # run Complement
   complement:
