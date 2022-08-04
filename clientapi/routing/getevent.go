@@ -82,7 +82,7 @@ func GetEvent(
 		}},
 	}
 	var stateResp api.QueryStateAfterEventsResponse
-	if err := rsAPI.QueryStateAfterEvents(req.Context(), &stateReq, &stateResp); err != nil {
+	if err = rsAPI.QueryStateAfterEvents(req.Context(), &stateReq, &stateResp); err != nil {
 		util.GetLogger(req.Context()).WithError(err).Error("queryAPI.QueryStateAfterEvents failed")
 		return jsonerror.InternalServerError()
 	}
@@ -118,7 +118,8 @@ func GetEvent(
 		} else if !stateEvent.StateKeyEquals(device.UserID) {
 			continue
 		}
-		membership, err := stateEvent.Membership()
+		var membership string
+		membership, err = stateEvent.Membership()
 		if err != nil {
 			util.GetLogger(req.Context()).WithError(err).Error("stateEvent.Membership failed")
 			return jsonerror.InternalServerError()
