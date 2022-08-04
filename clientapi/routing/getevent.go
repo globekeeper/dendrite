@@ -131,8 +131,28 @@ func GetEvent(
 		}
 	}
 
-	return util.JSONResponse{
-		Code: http.StatusNotFound,
-		JSON: jsonerror.NotFound("The event was not found or you do not have permission to read this event"),
+	// we might fail to retrieve correct state above, let's check user membership and allow to fetch event if they are invited or joined, since we always use m.room.history_visibility shared.
+	var membershipRes api.QueryMembershipForUserResponse
+	ctx := req.Context()
+	err = rsAPI.QueryMembershipForUser(ctx, &api.QueryMembershipForUserRequest{
+		RoomID: roomID,
+		UserID: device.UserID,
+	}, &membershipRes)
+	if err != nil {
+		util.GetLogger(ctx).WithError(err).Error("Failed to QueryMembershipForUser")
+		return jsonerror.InternalServerError()
+	}
+	// If the user has never been in the room then stop at this point.
+	// We won't tell the user about a room they have never joined.
+	if !membershipRes.HasBeenInRoom && membershipRes.Membership != gomatrixserverlib.Invite || membershipRes.Membership == gomatrixserverlib.Ban {
+		return util.JSONResponse{
+			Code: http.StatusNotFound,
+			JSON: jsonerror.NotFound("The event was not found or you do not have permission to read this event"),
+		}
+	} else {
+		return util.JSONResponse{
+			Code: http.StatusOK,
+			JSON: gomatrixserverlib.ToClientEvent(r.requestedEvent, gomatrixserverlib.FormatAll),
+		}
 	}
 }
