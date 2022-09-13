@@ -4,7 +4,6 @@ require (
 	github.com/Arceliar/ironwood v0.0.0-20220409035209-b7f71f05435a
 	github.com/Arceliar/phony v0.0.0-20210209235338-dde1a8dca979
 	github.com/DATA-DOG/go-sqlmock v1.5.0
-	github.com/MFAshby/stdemuxerhook v1.0.0
 	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/blevesearch/bleve/v2 v2.3.4
 	github.com/codeclysm/extract v2.2.0+incompatible
@@ -12,6 +11,8 @@ require (
 	github.com/docker/docker v20.10.16+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/getsentry/sentry-go v0.13.0
+	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/gologme/log v1.3.0
 	github.com/google/go-cmp v0.5.8
 	github.com/google/uuid v1.3.0
@@ -25,6 +26,7 @@ require (
 	github.com/matrix-org/gomatrixserverlib v0.0.0-20220911125436-dec87dbaa407
 	github.com/matrix-org/pinecone v0.0.0-20220912093434-b215925d5534
 	github.com/matrix-org/util v0.0.0-20200807132607-55161520e1d4
+	github.com/matryer/is v1.4.0
 	github.com/mattn/go-sqlite3 v1.14.13
 	github.com/nats-io/nats-server/v2 v2.9.0
 	github.com/nats-io/nats.go v1.16.1-0.20220906180156-a1017eec10b0
@@ -84,7 +86,6 @@ require (
 	github.com/frankban/quicktest v1.14.3 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
