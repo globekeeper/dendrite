@@ -20,7 +20,8 @@ type SyncRequest struct {
 	WantFullState bool
 
 	// Updated by the PDU stream.
-	Rooms map[string]string
+	Rooms       map[string]string
+	JoinedRooms []string
 	// Updated by the PDU stream.
 	IgnoredUsers IgnoredUsers
 }
