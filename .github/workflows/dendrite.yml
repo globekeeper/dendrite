@@ -29,7 +29,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
 
-  # run go test with go 1.18
+  # run go test with go 1.19
   test:
     timeout-minutes: 5
     name: Unit tests (Go ${{ matrix.go }})
@@ -57,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ["1.18", "1.19"]
+        go: ["1.19"]
     steps:
       - uses: actions/checkout@v3
       - name: Setup go
@@ -186,11 +186,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: SQLite
-
-          - label: SQLite, full HTTP APIs
-            api: full-http
-
           - label: PostgreSQL
             postgres: postgres
 
@@ -239,11 +234,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: SQLite
-
-          - label: SQLite, full HTTP APIs
-            api: full-http
-
           - label: PostgreSQL
             postgres: Postgres
 
