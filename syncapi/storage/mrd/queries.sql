@@ -7,7 +7,7 @@ INSERT INTO syncapi_multiroom_data (
     $1,
     $2,
     $3
-) ON CONFLICT (user_id, type) DO UPDATE SET id = nextval('syncapi_multiroom_id'), data = $3
+) ON CONFLICT (user_id, type) DO UPDATE SET id = nextval('syncapi_multiroom_id'), data = $3, ts = current_timestamp
 RETURNING id;
 
 

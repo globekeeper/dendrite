@@ -4,13 +4,16 @@
 
 package mrd
 
-import ()
+import (
+	"time"
+)
 
 type SyncapiMultiroomDatum struct {
-	ID     int64  `json:"id"`
-	UserID string `json:"user_id"`
-	Type   string `json:"type"`
-	Data   []byte `json:"data"`
+	ID     int64     `json:"id"`
+	UserID string    `json:"user_id"`
+	Type   string    `json:"type"`
+	Data   []byte    `json:"data"`
+	Ts     time.Time `json:"ts"`
 }
 
 type SyncapiMultiroomVisibility struct {

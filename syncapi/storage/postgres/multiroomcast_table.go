@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/matrix-org/dendrite/internal"
@@ -16,7 +17,7 @@ import (
 //go:embed schema.sql
 var schema string
 
-var selectMultiRoomCastSQL = `SELECT d.user_id, d.type, d.data FROM syncapi_multiroom_data AS d
+var selectMultiRoomCastSQL = `SELECT d.user_id, d.type, d.data, d.ts FROM syncapi_multiroom_data AS d
 JOIN syncapi_multiroom_visibility AS v
 ON d.user_id = v.user_id
 AND d.type = v.type
@@ -46,9 +47,11 @@ func (s *multiRoomStatements) SelectMultiRoomData(ctx context.Context, r *types.
 	}
 	data := make([]*types.MultiRoomDataRow, 0)
 	defer internal.CloseAndLogIfError(ctx, rows, "SelectMultiRoomData: rows.close() failed")
+	var t time.Time
 	for rows.Next() {
 		r := types.MultiRoomDataRow{}
-		err = rows.Scan(&r.UserId, &r.Type, &r.Data)
+		err = rows.Scan(&r.UserId, &r.Type, &r.Data, &t)
+		r.Timestamp = t.Unix()
 		if err != nil {
 			return nil, fmt.Errorf("rows scan: %w", err)
 		}

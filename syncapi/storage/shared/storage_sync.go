@@ -681,7 +681,10 @@ func (d *DatabaseTransaction) SelectMultiRoomData(ctx context.Context, r *types.
 		if mr[row.UserId] == nil {
 			mr[row.UserId] = make(map[string]types.MultiRoomData)
 		}
-		mr[row.UserId][row.Type] = row.Data
+		mr[row.UserId][row.Type] = types.MultiRoomData{
+			Content:   row.Data,
+			Timestamp: row.Timestamp,
+		}
 	}
 	return mr, nil
 
