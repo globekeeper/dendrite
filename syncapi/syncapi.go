@@ -16,7 +16,6 @@ package syncapi
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -57,19 +56,13 @@ func AddPublicRoutes(
 	}
 
 	go func() {
-		var res sql.Result
+		var affected int64
 		for {
-			res, err = mrq.DeleteMultiRoomVisibilityByExpireTS(context.Background(), time.Now().Unix())
+			affected, err = mrq.DeleteMultiRoomVisibilityByExpireTS(context.Background(), time.Now().Unix())
 			if err != nil {
 				logrus.WithError(err).Error("failed to expire multiroom visibility")
 			}
-			var affected int64
-			affected, err = res.RowsAffected()
-			if err != nil {
-				logrus.Info("expired multiroom visibility")
-			} else {
-				logrus.WithField("rows", affected).Info("expired multiroom visibility")
-			}
+			logrus.WithField("rows", affected).Info("expired multiroom visibility")
 			time.Sleep(time.Minute)
 		}
 	}()

@@ -409,9 +409,9 @@ func (rp *RequestPool) OnIncomingSyncRequest(req *http.Request, device *userapi.
 				),
 				MultiRoomDataPosition: withTransaction(
 					syncReq.Since.MultiRoomDataPosition,
-					func(snapshot storage.DatabaseTransaction) types.StreamPosition {
+					func(txn storage.DatabaseTransaction) types.StreamPosition {
 						return rp.streams.MultiRoomStreamProvider.CompleteSync(
-							syncReq.Context, snapshot, syncReq,
+							syncReq.Context, txn, syncReq,
 						)
 					},
 				),

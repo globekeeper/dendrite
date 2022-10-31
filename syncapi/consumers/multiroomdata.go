@@ -31,7 +31,7 @@ import (
 	"github.com/matrix-org/dendrite/syncapi/types"
 )
 
-// OutputClientDataConsumer consumes events that originated in the client API server.
+// OutputMultiRoomDataConsumer consumes events that originated in the client API server.
 type OutputMultiRoomDataConsumer struct {
 	ctx       context.Context
 	jetstream nats.JetStreamContext
@@ -42,7 +42,7 @@ type OutputMultiRoomDataConsumer struct {
 	notifier  *notifier.Notifier
 }
 
-// NewOutputClientDataConsumer creates a new OutputClientData consumer. Call Start() to begin consuming from room servers.
+// NewOutputMultiRoomDataConsumer creates a new OutputMultiRoomDataConsumer consumer. Call Start() to begin consuming from room servers.
 func NewOutputMultiRoomDataConsumer(
 	process *process.ProcessContext,
 	cfg *config.SyncAPI,

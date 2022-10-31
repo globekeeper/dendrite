@@ -39,6 +39,6 @@ WHERE user_id = $1
 AND type = $2
 AND room_id = $3;
 
--- name: DeleteMultiRoomVisibilityByExpireTS :execresult
+-- name: DeleteMultiRoomVisibilityByExpireTS :execrows
 DELETE FROM syncapi_multiroom_visibility
 WHERE expire_ts <= $1;

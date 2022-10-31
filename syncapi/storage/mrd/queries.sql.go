@@ -7,7 +7,6 @@ package mrd
 
 import (
 	"context"
-	"database/sql"
 )
 
 const deleteMultiRoomVisibility = `-- name: DeleteMultiRoomVisibility :exec
@@ -28,13 +27,17 @@ func (q *Queries) DeleteMultiRoomVisibility(ctx context.Context, arg DeleteMulti
 	return err
 }
 
-const deleteMultiRoomVisibilityByExpireTS = `-- name: DeleteMultiRoomVisibilityByExpireTS :execresult
+const deleteMultiRoomVisibilityByExpireTS = `-- name: DeleteMultiRoomVisibilityByExpireTS :execrows
 DELETE FROM syncapi_multiroom_visibility
 WHERE expire_ts <= $1
 `
 
-func (q *Queries) DeleteMultiRoomVisibilityByExpireTS(ctx context.Context, expireTs int64) (sql.Result, error) {
-	return q.exec(ctx, q.deleteMultiRoomVisibilityByExpireTSStmt, deleteMultiRoomVisibilityByExpireTS, expireTs)
+func (q *Queries) DeleteMultiRoomVisibilityByExpireTS(ctx context.Context, expireTs int64) (int64, error) {
+	result, err := q.exec(ctx, q.deleteMultiRoomVisibilityByExpireTSStmt, deleteMultiRoomVisibilityByExpireTS, expireTs)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const insertMultiRoomData = `-- name: InsertMultiRoomData :one
