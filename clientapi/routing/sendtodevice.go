@@ -62,7 +62,7 @@ func SendToDevice(
 				"from_user_id":   device.UserID,
 				"from_device_id": device.ID,
 				"type":           eventType,
-			}).Info("to-device-message sent")
+			}).Debug("to-device-message sent")
 		}
 	}
 
