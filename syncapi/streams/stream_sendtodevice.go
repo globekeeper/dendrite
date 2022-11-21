@@ -60,7 +60,7 @@ func (p *SendToDeviceStreamProvider) IncrementalSync(
 			"to_user_id":   req.Device.UserID,
 			"from_user_id": event.Sender,
 			"type":         event.Type,
-		}).Debug("to-device-message sent")
+		}).Debug("to-device-message received")
 	}
 
 	return lastPos
