@@ -71,13 +71,6 @@ func Password(
 		if _, authErr := typePassword.Login(req.Context(), &r.Auth.PasswordRequest); authErr != nil {
 			return *authErr
 		}
-		// Get the local part.
-		var err error
-		localpart, _, err = gomatrixserverlib.SplitID('@', device.UserID)
-		if err != nil {
-			util.GetLogger(req.Context()).WithError(err).Error("gomatrixserverlib.SplitID failed")
-			return jsonerror.InternalServerError()
-		}
 		sessions.addCompletedSessionStage(sessionID, authtypes.LoginTypePassword)
 	case authtypes.LoginTypeEmail:
 		threePid := &authtypes.ThreePID{}
@@ -118,7 +111,6 @@ func Password(
 				},
 			}
 		}
-		localpart = res.Localpart
 		sessions.addCompletedSessionStage(sessionID, authtypes.LoginTypeEmail)
 	default:
 		flows := []authtypes.Flow{
