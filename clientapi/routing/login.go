@@ -73,7 +73,6 @@ func Login(
 				JSON: loginResponse{
 					UserID:      userutil.MakeUserID(login.Username(), cfg.Matrix.ServerName),
 					AccessToken: "",
-					HomeServer:  cfg.Matrix.ServerName,
 					DeviceID:    "",
 				},
 			}

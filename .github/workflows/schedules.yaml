@@ -19,18 +19,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: SQLite native
-
-          - label: SQLite Cgo
-            cgo: 1
-
-          - label: SQLite native, full HTTP APIs
-            api: full-http
-
-          - label: SQLite Cgo, full HTTP APIs
-            api: full-http
-            cgo: 1
-
           - label: PostgreSQL
             postgres: postgres
 
@@ -119,20 +107,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: SQLite native
-            cgo: 0
-
-          - label: SQLite Cgo
-            cgo: 1
-
-          - label: SQLite native, full HTTP APIs
-            api: full-http
-            cgo: 0
-
-          - label: SQLite Cgo, full HTTP APIs
-            api: full-http
-            cgo: 1
-
           - label: PostgreSQL
             postgres: Postgres
             cgo: 0
