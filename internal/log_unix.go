@@ -41,12 +41,6 @@ func SetupHookLogging(hooks []config.LogrusHook, componentName string) {
 			logrus.Fatalf("Unrecognised logging level %s: %q", hook.Level, err)
 		}
 
-		// Perform a first filter on the logs according to the lowest level of all
-		// (Eg: If we have hook for info and above, prevent logrus from processing debug logs)
-		if logrus.GetLevel() < level {
-			logrus.SetLevel(level)
-		}
-
 		switch hook.Type {
 		case "file":
 			checkFileHookParams(hook.Params)

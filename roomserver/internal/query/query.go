@@ -33,6 +33,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/internal/helpers"
 	"github.com/matrix-org/dendrite/roomserver/state"
 	"github.com/matrix-org/dendrite/roomserver/storage"
+	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/dendrite/roomserver/version"
 )
@@ -181,9 +182,14 @@ func (r *Queryer) QueryMembershipForUser(
 	}
 	response.RoomExists = true
 
-	membershipEventNID, stillInRoom, isRoomforgotten, err := r.DB.GetMembership(ctx, info.RoomNID, request.UserID)
+	membershipEventNID, membershipState, stillInRoom, isRoomforgotten, err := r.DB.GetMembership(ctx, info.RoomNID, request.UserID)
 	if err != nil {
 		return err
+	}
+
+	if membershipState == tables.MembershipStateInvite {
+		response.Membership = gomatrixserverlib.Invite
+		response.IsInRoom = true
 	}
 
 	response.IsRoomForgotten = isRoomforgotten
@@ -339,7 +345,7 @@ func (r *Queryer) QueryMembershipsForRoom(
 		return nil
 	}
 
-	membershipEventNID, stillInRoom, isRoomforgotten, err := r.DB.GetMembership(ctx, info.RoomNID, request.Sender)
+	membershipEventNID, _, stillInRoom, isRoomforgotten, err := r.DB.GetMembership(ctx, info.RoomNID, request.Sender)
 	if err != nil {
 		return err
 	}
@@ -960,7 +966,7 @@ func (r *Queryer) QueryRestrictedJoinAllowed(ctx context.Context, req *api.Query
 		}
 		// At this point we're happy that we are in the room, so now let's
 		// see if the target user is in the room.
-		_, isIn, _, err = r.DB.GetMembership(ctx, targetRoomInfo.RoomNID, req.UserID)
+		_, _, isIn, _, err = r.DB.GetMembership(ctx, targetRoomInfo.RoomNID, req.UserID)
 		if err != nil {
 			continue
 		}
