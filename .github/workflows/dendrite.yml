@@ -246,7 +246,7 @@ jobs:
             postgres: postgres
             api: full-http
     container:
-      image: matrixdotorg/sytest-dendrite
+      image: matrixdotorg/sytest-dendrite:latest
       volumes:
         - ${{ github.workspace }}:/src
         - /root/.cache/go-build:/github/home/.cache/go-build
@@ -363,6 +363,7 @@ jobs:
           COMPLEMENT_BASE_IMAGE: complement-dendrite:${{ matrix.postgres }}${{ matrix.api }}${{ matrix.cgo }}
           COMPLEMENT_DENDRITE_API: ${{ matrix.api && 1 }}
           COMPLEMENT_SHARE_ENV_PREFIX: COMPLEMENT_DENDRITE_
+          API: ${{ matrix.api && 1 }}
         working-directory: complement
 
   integration-tests-done:
