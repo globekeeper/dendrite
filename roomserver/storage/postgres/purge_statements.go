@@ -27,6 +27,13 @@ const purgeEventJSONSQL = "" +
 	"	SELECT event_nid FROM roomserver_events WHERE room_nid = $1" +
 	")"
 
+const purgeEventJSONDataRetentionSQL = ""
+
+// DELETE
+// FROM roomserver_event_json
+// WHERE (event_nid = ANY(SELECT event_nid FROM roomserver_events WHERE room_nid = 1))
+// AND (SELECT (SELECT REGEXP_MATCHES(event_json, '"origin_server_ts":([0-9]{13})'))[1]::BIGINT < <required timestamp for timeframe in ms, e.g epoch of a week ago in ms>);
+
 const purgeEventsSQL = "" +
 	"DELETE FROM roomserver_events WHERE room_nid = $1"
 
