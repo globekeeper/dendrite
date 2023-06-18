@@ -8,7 +8,7 @@ import (
 	rsapi "github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/syncapi/notifier"
 	"github.com/matrix-org/dendrite/syncapi/storage"
-	"github.com/matrix-org/dendrite/syncapi/storage/mrd"
+	"github.com/matrix-org/dendrite/syncapi/storage/connnect"
 	"github.com/matrix-org/dendrite/syncapi/types"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
 )
@@ -30,7 +30,7 @@ func NewSyncStreamProviders(
 	d storage.Database, userAPI userapi.SyncUserAPI,
 	rsAPI rsapi.SyncRoomserverAPI,
 	eduCache *caching.EDUCache, lazyLoadCache caching.LazyLoadCache, notifier *notifier.Notifier,
-	mrdb *mrd.Queries,
+	mrdb *connnect.Queries,
 ) *Streams {
 	streams := &Streams{
 		PDUStreamProvider: &PDUStreamProvider{

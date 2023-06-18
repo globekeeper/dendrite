@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-co-op/gocron"
 	"github.com/tidwall/gjson"
 
 	userapi "github.com/matrix-org/dendrite/userapi/api"
@@ -31,7 +32,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/eventutil"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/roomserver/api"
-	"github.com/matrix-org/dendrite/syncapi/storage/mrd"
+	"github.com/matrix-org/dendrite/syncapi/storage/connnect"
 	"github.com/matrix-org/dendrite/syncapi/storage/tables"
 	"github.com/matrix-org/dendrite/syncapi/synctypes"
 	"github.com/matrix-org/dendrite/syncapi/types"
@@ -57,7 +58,7 @@ type Database struct {
 	Ignores             tables.Ignores
 	Presence            tables.Presence
 	Relations           tables.Relations
-	MultiRoomQ          *mrd.Queries
+	ConnnectQ           *connnect.Queries
 	MultiRoom           tables.MultiRoom
 }
 
@@ -254,6 +255,7 @@ func (d *Database) WriteEvent(
 	addStateEventIDs, removeStateEventIDs []string,
 	transactionID *api.TransactionID, excludeFromSync bool,
 	historyVisibility gomatrixserverlib.HistoryVisibility,
+	rsAPI api.SyncRoomserverAPI, scheduler *gocron.Scheduler,
 ) (pduPosition types.StreamPosition, returnErr error) {
 	returnErr = d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
 		var err error
@@ -281,7 +283,7 @@ func (d *Database) WriteEvent(
 		for i := range addStateEvents {
 			addStateEvents[i].Visibility = historyVisibility
 		}
-		return d.updateRoomState(ctx, txn, removeStateEventIDs, addStateEvents, pduPosition, topoPosition)
+		return d.updateRoomState(ctx, txn, removeStateEventIDs, addStateEvents, pduPosition, topoPosition, rsAPI, scheduler)
 	})
 
 	return pduPosition, returnErr
@@ -294,6 +296,7 @@ func (d *Database) updateRoomState(
 	addedEvents []*gomatrixserverlib.HeaderedEvent,
 	pduPosition types.StreamPosition,
 	topoPosition types.StreamPosition,
+	rsAPI api.SyncRoomserverAPI, scheduler *gocron.Scheduler,
 ) error {
 	// remove first, then add, as we do not ever delete state, but do replace state which is a remove followed by an add.
 	for _, eventID := range removedEventIDs {
@@ -324,6 +327,45 @@ func (d *Database) updateRoomState(
 			if err != nil {
 				logrus.WithError(err).WithField("event_id", event.EventID()).Error("failed to update multi room visibility")
 			}
+		}
+
+		// Upsert data retention to DB for being able to fetch it on init and set the jobs accordingly.
+		if strings.HasPrefix(event.Type(), "connect.data_retention") {
+			err := d.UpsertDataRetention(ctx, event)
+			if err != nil {
+				logrus.WithError(err).WithField("event_id", event.EventID()).Error("failed to upsert data retention")
+			}
+			// Create / adjust jobs.
+			var DRContent connnect.DataRetention
+			if err = json.Unmarshal(event.Content(), &DRContent); err != nil {
+				logrus.WithError(err).WithField("event_id", event.EventID()).Error("failed to unmarshal data retention")
+			}
+			exists := false
+			spaces := scheduler.GetAllTags()
+			for _, spaceId := range spaces {
+				if spaceId == event.RoomID() {
+					exists = true
+				}
+			}
+			if exists {
+				// Remove existing job.
+				err = scheduler.RemoveByTag(event.RoomID())
+				if err != nil {
+					logrus.WithError(err).WithField("event_id", event.EventID()).Error("failed to remove data retention job by space id tag")
+				}
+			}
+			// Create the new job.
+			_, err = scheduler.At(DRContent.At).Every(DRContent.Timeframe).Milliseconds().Tag(event.RoomID()).Do(func(SpaceID string) {
+				logrus.WithField("space_id", DRContent.SpaceID).Info("running data retention job")
+				res := &api.PerformDataRetentionResponse{}
+				if err = rsAPI.PerformDataRetention(ctx, &api.PerformDataRetentionRequest{RoomID: SpaceID}, res); err != nil {
+					logrus.WithError(err).Error("failed to perform room data retention")
+				}
+			}, DRContent.SpaceID)
+			if err != nil {
+				logrus.WithError(err).WithField("event_id", event.EventID()).Error("failed to create data retention job")
+			}
+
 		}
 
 		if err := d.CurrentRoomState.UpsertRoomState(ctx, txn, event, membership, pduPosition); err != nil {
@@ -636,30 +678,55 @@ func (s *Database) UpdateLastActive(ctx context.Context, userId string, lastActi
 }
 
 func (d *Database) UpdateMultiRoomVisibility(ctx context.Context, event *gomatrixserverlib.HeaderedEvent) error {
-	var mrdEv mrd.StateEvent
+	var mrdEv connnect.MrdStateEvent
 	err := json.Unmarshal(event.Content(), &mrdEv)
 	if err != nil {
-		return fmt.Errorf("unmarshal multiroom visibility failed: %w", err)
+		return fmt.Errorf("unmarshaling multiroom visibility failed: %w", err)
 	}
 	if mrdEv.Hidden {
-		err = d.MultiRoomQ.DeleteMultiRoomVisibility(ctx, mrd.DeleteMultiRoomVisibilityParams{
+		err = d.ConnnectQ.DeleteMultiRoomVisibility(ctx, connnect.DeleteMultiRoomVisibilityParams{
 			UserID: event.Sender(),
 			Type:   event.Type(),
 			RoomID: event.RoomID(),
 		})
 		if err != nil {
-			return fmt.Errorf("delete multiroom visibility failed: %w", err)
+			return fmt.Errorf("deleting multiroom visibility failed: %w", err)
 		}
 	}
 	if mrdEv.ExpireTs > 0 {
-		err = d.MultiRoomQ.InsertMultiRoomVisibility(ctx, mrd.InsertMultiRoomVisibilityParams{
+		err = d.ConnnectQ.InsertMultiRoomVisibility(ctx, connnect.InsertMultiRoomVisibilityParams{
 			UserID:   event.Sender(),
 			Type:     event.Type(),
 			RoomID:   event.RoomID(),
 			ExpireTs: mrdEv.ExpireTs,
 		})
 		if err != nil {
-			return fmt.Errorf("insert multiroom visibility failed: %w", err)
+			return fmt.Errorf("inserting multiroom visibility failed: %w", err)
+		}
+	}
+	return nil
+}
+
+func (d *Database) UpsertDataRetention(ctx context.Context, event *gomatrixserverlib.HeaderedEvent) error {
+	var drEv connnect.DrStateEvent
+	err := json.Unmarshal(event.Content(), &drEv)
+	if err != nil {
+		return fmt.Errorf("unmarshal data retention failed: %w", err)
+	}
+	if drEv.Timeframe == 0 {
+		// Disabling data retention
+		err = d.ConnnectQ.DeleteDataRetention(ctx, event.RoomID())
+		if err != nil {
+			return fmt.Errorf("deleting data retention failed: %w", err)
+		}
+	} else {
+		err = d.ConnnectQ.UpsertDataRetention(ctx, connnect.UpsertDataRetentionParams{
+			SpaceID:   event.RoomID(),
+			Timeframe: drEv.Timeframe,
+			At:        drEv.At,
+		})
+		if err != nil {
+			return fmt.Errorf("inserting data retention failed: %w", err)
 		}
 	}
 	return nil

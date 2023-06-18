@@ -57,6 +57,8 @@ const (
 	OutputTypeRetirePeek OutputType = "retire_peek"
 	// OutputTypePurgeRoom indicates the event is an OutputPurgeRoom
 	OutputTypePurgeRoom OutputType = "purge_room"
+	// OutputTypeRoomDataRetention indicates the event is an OutputDataRetention
+	OutputTypeRoomDataRetention OutputType = "data_retention"
 )
 
 // An OutputEvent is an entry in the roomserver output kafka log.
@@ -82,6 +84,8 @@ type OutputEvent struct {
 	RetirePeek *OutputRetirePeek `json:"retire_peek,omitempty"`
 	// The content of the event with type OutputPurgeRoom
 	PurgeRoom *OutputPurgeRoom `json:"purge_room,omitempty"`
+	// The content of the event with type OutputDataRetention
+	RoomDataRetention *OutputDataRetention `json:"data_retention,omitempty"`
 }
 
 // Type of the OutputNewRoomEvent.
@@ -263,5 +267,9 @@ type OutputRetirePeek struct {
 }
 
 type OutputPurgeRoom struct {
+	RoomID string
+}
+
+type OutputDataRetention struct {
 	RoomID string
 }

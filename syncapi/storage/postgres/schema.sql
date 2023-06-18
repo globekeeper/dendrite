@@ -16,4 +16,10 @@ CREATE TABLE IF NOT EXISTS syncapi_multiroom_visibility (
 	room_id TEXT NOT NULL,
 	expire_ts BIGINT NOT NULL DEFAULT 0,
 	PRIMARY KEY(user_id, type, room_id)
-)
+);
+
+CREATE TABLE IF NOT EXISTS data_retention (
+	space_id TEXT UNIQUE NOT NULL PRIMARY KEY,
+	timeframe BIGINT NOT NULL,
+	at TEXT NOT NULL DEFAULT '00:00:00'
+);

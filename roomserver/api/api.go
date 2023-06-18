@@ -107,6 +107,14 @@ type SyncRoomserverAPI interface {
 		request *QueryMembershipAtEventRequest,
 		response *QueryMembershipAtEventResponse,
 	) error
+
+	// Perform a data retention run.
+	// Triggered by data retention jobs, configured by space admins.
+	PerformDataRetention(
+		ctx context.Context,
+		req *PerformDataRetentionRequest,
+		res *PerformDataRetentionResponse,
+	) error
 }
 
 type AppserviceRoomserverAPI interface {

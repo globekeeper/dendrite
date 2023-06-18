@@ -42,7 +42,7 @@ func MustWriteEvents(t *testing.T, db storage.Database, events []*gomatrixserver
 			addStateEvents = append(addStateEvents, ev)
 			addStateEventIDs = append(addStateEventIDs, ev.EventID())
 		}
-		pos, err := db.WriteEvent(ctx, ev, addStateEvents, addStateEventIDs, removeStateEventIDs, nil, false, gomatrixserverlib.HistoryVisibilityShared)
+		pos, err := db.WriteEvent(ctx, ev, addStateEvents, addStateEventIDs, removeStateEventIDs, nil, false, gomatrixserverlib.HistoryVisibilityShared, nil, nil)
 		if err != nil {
 			t.Fatalf("WriteEvent failed: %s", err)
 		}

@@ -896,7 +896,7 @@ func (r *Queryer) QueryRestrictedJoinAllowed(ctx context.Context, req *api.Query
 	} else if !allowRestrictedJoins {
 		return nil
 	}
-	// Start off by populating the "resident" flag in the response. If we
+	// Start off by populating the "resident" flag in the response. If weX
 	// come across any rooms in the request that are missing, we will unset
 	// the flag.
 	res.Resident = true

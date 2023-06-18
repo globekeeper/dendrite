@@ -17,6 +17,7 @@ package storage
 import (
 	"context"
 
+	"github.com/go-co-op/gocron"
 	"github.com/matrix-org/gomatrixserverlib"
 
 	"github.com/matrix-org/dendrite/internal/eventutil"
@@ -129,7 +130,7 @@ type Database interface {
 	// Returns an error if there was a problem inserting this event.
 	WriteEvent(ctx context.Context, ev *gomatrixserverlib.HeaderedEvent, addStateEvents []*gomatrixserverlib.HeaderedEvent,
 		addStateEventIDs []string, removeStateEventIDs []string, transactionID *api.TransactionID, excludeFromSync bool,
-		historyVisibility gomatrixserverlib.HistoryVisibility,
+		historyVisibility gomatrixserverlib.HistoryVisibility, rsAPI api.SyncRoomserverAPI, scheduler *gocron.Scheduler,
 	) (types.StreamPosition, error)
 	// PurgeRoomState completely purges room state from the sync API. This is done when
 	// receiving an output event that completely resets the state.

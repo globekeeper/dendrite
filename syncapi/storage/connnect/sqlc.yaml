@@ -1,6 +1,6 @@
 version: 1
 packages:
-  - path: ../mrd
+  - path: ../connnect
     engine: postgresql
     schema: ../postgres/schema.sql
     queries: queries.sql

@@ -249,6 +249,14 @@ type PerformAdminPurgeRoomResponse struct {
 	Error *PerformError `json:"error,omitempty"`
 }
 
+type PerformDataRetentionRequest struct {
+	RoomID string `json:"room_id"`
+}
+
+type PerformDataRetentionResponse struct {
+	Error *PerformError `json:"error,omitempty"`
+}
+
 type PerformAdminDownloadStateRequest struct {
 	RoomID     string                       `json:"room_id"`
 	UserID     string                       `json:"user_id"`

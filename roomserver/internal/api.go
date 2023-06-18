@@ -39,6 +39,7 @@ type RoomserverInternalAPI struct {
 	*perform.Forgetter
 	*perform.Upgrader
 	*perform.Admin
+	*perform.DataRetention
 	ProcessContext         *process.ProcessContext
 	DB                     storage.Database
 	Cfg                    *config.Dendrite

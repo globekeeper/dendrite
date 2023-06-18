@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/getsentry/sentry-go"
+	"github.com/go-co-op/gocron"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
@@ -52,6 +53,7 @@ type OutputRoomEventConsumer struct {
 	inviteStream streams.StreamProvider
 	notifier     *notifier.Notifier
 	fts          fulltext.Indexer
+	DrScheduler  *gocron.Scheduler
 }
 
 // NewOutputRoomEventConsumer creates a new OutputRoomEventConsumer. Call Start() to begin consuming from room servers.
@@ -65,6 +67,7 @@ func NewOutputRoomEventConsumer(
 	inviteStream streams.StreamProvider,
 	rsAPI api.SyncRoomserverAPI,
 	fts *fulltext.Search,
+	scheduler *gocron.Scheduler,
 ) *OutputRoomEventConsumer {
 	return &OutputRoomEventConsumer{
 		ctx:          process.Context(),
@@ -78,6 +81,7 @@ func NewOutputRoomEventConsumer(
 		inviteStream: inviteStream,
 		rsAPI:        rsAPI,
 		fts:          fts,
+		DrScheduler:  scheduler,
 	}
 }
 
@@ -133,6 +137,13 @@ func (s *OutputRoomEventConsumer) onMessage(ctx context.Context, msgs []*nats.Ms
 		if err != nil {
 			logrus.WithField("room_id", output.PurgeRoom.RoomID).WithError(err).Error("Failed to purge room from sync API")
 			return true // non-fatal, as otherwise we end up in a loop of trying to purge the room
+		}
+	// After performing data-retention in roomserver database, trigger data retention in syncapi.
+	case api.OutputTypeRoomDataRetention:
+		err = s.onDataRetention(s.ctx, *output.RoomDataRetention)
+		if err != nil {
+			logrus.WithField("room_id", output.RoomDataRetention.RoomID).WithError(err).Error("Failed to perform room data retention in sync API")
+			return true // non-fatal, as otherwise we end up in a loop of trying to perform data retention in the room
 		}
 	default:
 		log.WithField("type", output.Type).Debug(
@@ -264,7 +275,10 @@ func (s *OutputRoomEventConsumer) onNewRoomEvent(
 		msg.TransactionID,
 		false,
 		msg.HistoryVisibility,
+		s.rsAPI,
+		s.DrScheduler,
 	)
+
 	if err != nil {
 		// panic rather than continue with an inconsistent database
 		log.WithFields(log.Fields{
@@ -323,6 +337,8 @@ func (s *OutputRoomEventConsumer) onOldRoomEvent(
 		nil,                  // no transaction
 		ev.StateKey() != nil, // exclude from sync?,
 		msg.HistoryVisibility,
+		nil,
+		nil,
 	)
 	if err != nil {
 		// panic rather than continue with an inconsistent database
@@ -493,6 +509,21 @@ func (s *OutputRoomEventConsumer) onPurgeRoom(
 		logrus.WithField("room_id", req.RoomID).Warn("Room purged from sync API")
 		return nil
 	}
+}
+
+func (s *OutputRoomEventConsumer) onDataRetention(
+	ctx context.Context, req api.OutputDataRetention,
+) error {
+	logrus.WithField("room_id", req.RoomID).Warn("Data retention from sync API")
+
+	// TODO: Perform data retention in syncapi database.
+	// if err := s.db.PerformDataRetention(ctx, req.RoomID); err != nil {
+	// 	logrus.WithField("room_id", req.RoomID).WithError(err).Error("Failed to perform data retention from sync API")
+	// 	return err
+	// } else {
+	// 	logrus.WithField("room_id", req.RoomID).Warn("Room data retention from sync API")
+	// 	return nil
+	// }
 }
 
 func (s *OutputRoomEventConsumer) updateStateEvent(event *gomatrixserverlib.HeaderedEvent) (*gomatrixserverlib.HeaderedEvent, error) {
