@@ -74,6 +74,14 @@ func LoginFromJSONReader(ctx context.Context, r io.Reader, useraccountAPI uapi.C
 		typ = &LoginTypeTokenJwt{
 			Config: cfg,
 		}
+	case authtypes.LoginTypeGeodome:
+		typ = &LoginTypeGeodome{
+			UserApi:       useraccountAPI,
+			Config:        cfg,
+			Rt:            rt,
+			InhibitDevice: header.InhibitDevice,
+			UserLoginAPI:  useraccountAPI,
+		}
 	default:
 		err := util.JSONResponse{
 			Code: http.StatusBadRequest,

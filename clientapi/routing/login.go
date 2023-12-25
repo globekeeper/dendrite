@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"github.com/matrix-org/dendrite/clientapi/auth"
+	"github.com/matrix-org/dendrite/clientapi/auth/authtypes"
 	"github.com/matrix-org/dendrite/clientapi/ratelimit"
 	"github.com/matrix-org/dendrite/clientapi/userutil"
 	"github.com/matrix-org/dendrite/setup/config"
@@ -28,10 +29,11 @@ import (
 )
 
 type loginResponse struct {
-	UserID      string          `json:"user_id"`
-	AccessToken string          `json:"access_token"`
-	HomeServer  spec.ServerName `json:"home_server"`
-	DeviceID    string          `json:"device_id"`
+	UserID           string          `json:"user_id"`
+	AccessToken      string          `json:"access_token"`
+	HomeServer       spec.ServerName `json:"home_server"`
+	DeviceID         string          `json:"device_id"`
+	ExternalAuthResp interface{}     `json:"external_auth_response,omitempty"`
 }
 
 type flows struct {
@@ -42,15 +44,6 @@ type flow struct {
 	Type string `json:"type"`
 }
 
-func passwordLogin() flows {
-	f := flows{}
-	s := flow{
-		Type: "m.login.password",
-	}
-	f.Flows = append(f.Flows, s)
-	return f
-}
-
 // Login implements GET and POST /login
 func Login(
 	req *http.Request, userAPI userapi.ClientUserAPI,
@@ -58,10 +51,21 @@ func Login(
 	rt *ratelimit.RtFailedLogin,
 ) util.JSONResponse {
 	if req.Method == http.MethodGet {
-		// TODO: support other forms of login other than password, depending on config options
+		loginFlows := []flow{{Type: authtypes.LoginTypePassword}}
+		if len(cfg.Derived.ApplicationServices) > 0 {
+			loginFlows = append(loginFlows, flow{Type: authtypes.LoginTypeApplicationService})
+			loginFlows = append(loginFlows, flow{Type: authtypes.LoginTypeDummy})
+			loginFlows = append(loginFlows, flow{Type: authtypes.LoginTypeEmail})
+			loginFlows = append(loginFlows, flow{Type: authtypes.LoginTypeJwt})
+			loginFlows = append(loginFlows, flow{Type: authtypes.LoginTypeGeodome})
+			loginFlows = append(loginFlows, flow{Type: authtypes.LoginTypeGeodome})
+		}
+		// TODO: support other forms of login, depending on config options
 		return util.JSONResponse{
 			Code: http.StatusOK,
-			JSON: passwordLogin(),
+			JSON: flows{
+				Flows: loginFlows,
+			},
 		}
 	} else if req.Method == http.MethodPost {
 		login, cleanup, authErr := auth.LoginFromJSONReader(req.Context(), req.Body, userAPI, cfg, rt)
@@ -129,6 +133,18 @@ func completeAuth(
 		}
 	}
 
+	if login.ExternalAuthResp != nil {
+		return util.JSONResponse{
+			Code: http.StatusOK,
+			JSON: loginResponse{
+				UserID:           performRes.Device.UserID,
+				AccessToken:      performRes.Device.AccessToken,
+				HomeServer:       serverName,
+				DeviceID:         performRes.Device.ID,
+				ExternalAuthResp: login.ExternalAuthResp,
+			},
+		}
+	}
 	return util.JSONResponse{
 		Code: http.StatusOK,
 		JSON: loginResponse{

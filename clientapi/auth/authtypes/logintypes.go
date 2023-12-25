@@ -13,4 +13,5 @@ const (
 	LoginTypeToken              = "m.login.token"
 	LoginTypeJwt                = "org.matrix.login.jwt"
 	LoginTypeEmail              = "m.login.email.identity"
+	LoginTypeGeodome            = "connect.login.external_auth.geodome"
 )

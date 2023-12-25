@@ -66,6 +66,8 @@ type ClientAPI struct {
 	JwtConfig JwtConfig `yaml:"jwt_config"`
 
 	Ldap Ldap `yaml:"ldap"`
+
+	GeodomeAuthEndpoint string `yaml:"geodome_auth_endpoint"`
 }
 
 type JwtConfig struct {
