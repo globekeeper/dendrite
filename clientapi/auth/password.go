@@ -93,13 +93,13 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 				JSON: spec.Unknown(""),
 			}
 		}
-		username = "@" + res.Localpart + ":" + string(t.Config.Matrix.ServerName)
-		if username == "" {
+		if res.Localpart == "" || res.ServerName == "" {
 			return nil, &util.JSONResponse{
 				Code: http.StatusUnauthorized,
 				JSON: spec.Forbidden("Invalid username or password"),
 			}
 		}
+		username = userutil.MakeUserID(res.Localpart, res.ServerName)
 	} else {
 		username = r.Username()
 	}
@@ -115,6 +115,7 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 			JSON: spec.BadJSON("A password must be supplied."),
 		}
 	}
+
 	localpart, domain, err := userutil.ParseUsernameParam(username, t.Config.Matrix)
 	if err != nil {
 		return nil, &util.JSONResponse{
@@ -122,6 +123,7 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 			JSON: spec.InvalidUsername(err.Error()),
 		}
 	}
+
 	if !t.Config.Matrix.IsLocalServerName(domain) {
 		return nil, &util.JSONResponse{
 			Code: http.StatusUnauthorized,
@@ -129,8 +131,6 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 		}
 	}
 
-	// Squash username to all lowercase letters
-	res := &api.QueryAccountByPasswordResponse{}
 	if t.Rt != nil {
 		ok, retryIn := t.Rt.CanAct(localpart)
 		if !ok {
@@ -138,17 +138,6 @@ func (t *LoginTypePassword) Login(ctx context.Context, req interface{}) (*Login,
 				Code: http.StatusTooManyRequests,
 				JSON: spec.LimitExceeded("Too Many Requests", retryIn.Milliseconds()),
 			}
-		}
-	}
-	err = t.UserApi.QueryAccountByPassword(ctx, &api.QueryAccountByPasswordRequest{
-		Localpart:         strings.ToLower(localpart),
-		ServerName:        domain,
-		PlaintextPassword: r.Password,
-	}, res)
-	if err != nil {
-		return nil, &util.JSONResponse{
-			Code: http.StatusInternalServerError,
-			JSON: spec.Unknown("Unable to fetch account by password."),
 		}
 	}
 
