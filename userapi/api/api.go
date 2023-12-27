@@ -90,6 +90,7 @@ type ClientUserAPI interface {
 	ProfileAPI
 	KeyBackupAPI
 	QueryNumericLocalpart(ctx context.Context, req *QueryNumericLocalpartRequest, res *QueryNumericLocalpartResponse) error
+	QueryExternalUserNumericLocalpart(ctx context.Context, req *QueryExternalUserNumericLocalpartRequest, res *QueryExternalUserNumericLocalpartResponse) error
 	QueryDevices(ctx context.Context, req *QueryDevicesRequest, res *QueryDevicesResponse) error
 	QueryAccountData(ctx context.Context, req *QueryAccountDataRequest, res *QueryAccountDataResponse) error
 	QueryPushers(ctx context.Context, req *QueryPushersRequest, res *QueryPushersResponse) error
@@ -599,6 +600,15 @@ type QueryNumericLocalpartRequest struct {
 }
 
 type QueryNumericLocalpartResponse struct {
+	ID int64
+}
+
+type QueryExternalUserNumericLocalpartRequest struct {
+	ServerName         spec.ServerName
+	ExternalUserPrefix string
+}
+
+type QueryExternalUserNumericLocalpartResponse struct {
 	ID int64
 }
 

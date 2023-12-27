@@ -70,15 +70,19 @@ const selectPasswordHashSQL = "" +
 const selectNewNumericLocalpartSQL = "" +
 	"SELECT COALESCE(MAX(CAST(localpart AS INT)), 0) FROM userapi_accounts WHERE CAST(localpart AS INT) <> 0 AND server_name = $1"
 
+const selectNewExternalUserNumericLocalpartSQL = "" +
+	"SELECT COALESCE(MAX(SUBSTRING(localpart, LENGTH($2) + 2)::INTEGER), 0) FROM userapi_accounts WHERE localpart ~ ('^' || $2 || '-[0-9]+$') AND server_name = $1"
+
 type accountsStatements struct {
-	db                            *sql.DB
-	insertAccountStmt             *sql.Stmt
-	updatePasswordStmt            *sql.Stmt
-	deactivateAccountStmt         *sql.Stmt
-	selectAccountByLocalpartStmt  *sql.Stmt
-	selectPasswordHashStmt        *sql.Stmt
-	selectNewNumericLocalpartStmt *sql.Stmt
-	serverName                    spec.ServerName
+	db                                        *sql.DB
+	insertAccountStmt                         *sql.Stmt
+	updatePasswordStmt                        *sql.Stmt
+	deactivateAccountStmt                     *sql.Stmt
+	selectAccountByLocalpartStmt              *sql.Stmt
+	selectPasswordHashStmt                    *sql.Stmt
+	selectNewNumericLocalpartStmt             *sql.Stmt
+	selectNewExternalUserNumericLocalpartStmt *sql.Stmt
+	serverName                                spec.ServerName
 }
 
 func NewSQLiteAccountsTable(db *sql.DB, serverName spec.ServerName) (tables.AccountsTable, error) {
@@ -114,6 +118,7 @@ func NewSQLiteAccountsTable(db *sql.DB, serverName spec.ServerName) (tables.Acco
 		{&s.selectAccountByLocalpartStmt, selectAccountByLocalpartSQL},
 		{&s.selectPasswordHashStmt, selectPasswordHashSQL},
 		{&s.selectNewNumericLocalpartStmt, selectNewNumericLocalpartSQL},
+		{&s.selectNewExternalUserNumericLocalpartStmt, selectNewExternalUserNumericLocalpartSQL},
 	}.Prepare(db)
 }
 
@@ -198,6 +203,20 @@ func (s *accountsStatements) SelectNewNumericLocalpart(
 		stmt = sqlutil.TxStmt(txn, stmt)
 	}
 	err = stmt.QueryRowContext(ctx, serverName).Scan(&id)
+	if err == sql.ErrNoRows {
+		return 1, nil
+	}
+	return id + 1, err
+}
+
+func (s *accountsStatements) SelectNewExternalUserNumericLocalpart(
+	ctx context.Context, txn *sql.Tx, serverName spec.ServerName, externalPrefix string,
+) (id int64, err error) {
+	stmt := s.selectNewExternalUserNumericLocalpartStmt
+	if txn != nil {
+		stmt = sqlutil.TxStmt(txn, stmt)
+	}
+	err = stmt.QueryRowContext(ctx, serverName, externalPrefix).Scan(&id)
 	if err == sql.ErrNoRows {
 		return 1, nil
 	}

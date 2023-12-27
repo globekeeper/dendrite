@@ -54,6 +54,7 @@ type Account interface {
 	CreateAccount(ctx context.Context, localpart string, serverName spec.ServerName, plaintextPassword string, appserviceID string, accountType api.AccountType) (*api.Account, error)
 	GetAccountByPassword(ctx context.Context, localpart string, serverName spec.ServerName, plaintextPassword string) (*api.Account, error)
 	GetNewNumericLocalpart(ctx context.Context, serverName spec.ServerName) (int64, error)
+	GetNewExternalUserNumericLocalpart(ctx context.Context, serverName spec.ServerName, externalPrefix string) (int64, error)
 	CheckAccountAvailability(ctx context.Context, localpart string, serverName spec.ServerName) (bool, error)
 	GetAccountByLocalpart(ctx context.Context, localpart string, serverName spec.ServerName) (*api.Account, error)
 	DeactivateAccount(ctx context.Context, localpart string, serverName spec.ServerName) (err error)

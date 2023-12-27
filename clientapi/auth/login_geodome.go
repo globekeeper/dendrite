@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/matrix-org/dendrite/clientapi/auth/authtypes"
@@ -33,6 +33,8 @@ type LoginTypeGeodome struct {
 	InhibitDevice bool
 	UserLoginAPI  api.UserLoginAPI
 }
+
+const externalUserPrefix = "geodome"
 
 func (t *LoginTypeGeodome) Name() string {
 	return authtypes.LoginTypeGeodome
@@ -98,19 +100,20 @@ func (t *LoginTypeGeodome) Login(ctx context.Context, req interface{}) (*Login, 
 		username = userutil.MakeUserID(res.Localpart, res.ServerName)
 	} else {
 		// Case where the user is not registered yet
-		nreq := &api.QueryNumericLocalpartRequest{
-			ServerName: t.Config.Matrix.ServerName,
+		nreq := &api.QueryExternalUserNumericLocalpartRequest{
+			ServerName:         t.Config.Matrix.ServerName,
+			ExternalUserPrefix: externalUserPrefix,
 		}
-		nres := &api.QueryNumericLocalpartResponse{}
-		err = t.UserApi.QueryNumericLocalpart(ctx, nreq, nres)
+		nres := &api.QueryExternalUserNumericLocalpartResponse{}
+		err = t.UserApi.QueryExternalUserNumericLocalpart(ctx, nreq, nres)
 		if err != nil {
-			util.GetLogger(ctx).WithError(err).Error("userAPI.QueryNumericLocalpart failed")
+			util.GetLogger(ctx).WithError(err).Error("userAPI.QueryExternalUserNumericLocalpart failed")
 			return nil, &util.JSONResponse{
 				Code: http.StatusInternalServerError,
 				JSON: spec.InternalServerError{},
 			}
 		}
-		username = strconv.FormatInt(nres.ID, 10)
+		username = fmt.Sprintf("%s-%d", externalUserPrefix, nres.ID)
 	}
 
 	localpart, domain, err := userutil.ParseUsernameParam(username, t.Config.Matrix)

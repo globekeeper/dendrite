@@ -939,6 +939,15 @@ func (a *UserInternalAPI) QueryNumericLocalpart(ctx context.Context, req *api.Qu
 	return nil
 }
 
+func (a *UserInternalAPI) QueryExternalUserNumericLocalpart(ctx context.Context, req *api.QueryExternalUserNumericLocalpartRequest, res *api.QueryExternalUserNumericLocalpartResponse) error {
+	id, err := a.DB.GetNewExternalUserNumericLocalpart(ctx, req.ServerName, req.ExternalUserPrefix)
+	if err != nil {
+		return err
+	}
+	res.ID = id
+	return nil
+}
+
 func (a *UserInternalAPI) QueryAccountAvailability(ctx context.Context, req *api.QueryAccountAvailabilityRequest, res *api.QueryAccountAvailabilityResponse) error {
 	var err error
 	res.Available, err = a.DB.CheckAccountAvailability(ctx, req.Localpart, req.ServerName)

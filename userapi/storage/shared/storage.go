@@ -325,6 +325,13 @@ func (d *Database) GetNewNumericLocalpart(
 	return d.Accounts.SelectNewNumericLocalpart(ctx, nil, serverName)
 }
 
+// GetNewExternalUserNumericLocalpart generates and returns a new unused numeric localpart postfix for external users registering on this server with the given prefix
+func (d *Database) GetNewExternalUserNumericLocalpart(
+	ctx context.Context, serverName spec.ServerName, externalPrefix string,
+) (int64, error) {
+	return d.Accounts.SelectNewExternalUserNumericLocalpart(ctx, nil, serverName, externalPrefix)
+}
+
 func (d *Database) hashPassword(plaintext string) (hash string, err error) {
 	hashBytes, err := bcrypt.GenerateFromPassword([]byte(plaintext), d.BcryptCost)
 	return string(hashBytes), err

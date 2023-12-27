@@ -52,6 +52,7 @@ type AccountsTable interface {
 	SelectPasswordHash(ctx context.Context, localpart string, serverName spec.ServerName) (hash string, err error)
 	SelectAccountByLocalpart(ctx context.Context, localpart string, serverName spec.ServerName) (*api.Account, error)
 	SelectNewNumericLocalpart(ctx context.Context, txn *sql.Tx, serverName spec.ServerName) (id int64, err error)
+	SelectNewExternalUserNumericLocalpart(ctx context.Context, txn *sql.Tx, serverName spec.ServerName, externalPrefix string) (id int64, err error)
 }
 
 type DevicesTable interface {
