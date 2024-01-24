@@ -167,7 +167,8 @@ func (p *SyncAPIProducer) SendMultiroom(
 ) error {
 	m := nats.NewMsg(p.TopicMultiRoomCast)
 	m.Header.Set(jetstream.UserID, userID)
-	m.Header.Set("type", dataType)
+	m.Header.Set(jetstream.Type, dataType)
+	m.Header.Set(jetstream.Timestamp, strconv.Itoa(int(spec.AsTimestamp(time.Now()))))
 	m.Data = message
 	_, err := p.JetStream.PublishMsg(m, nats.Context(ctx))
 	return err

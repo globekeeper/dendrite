@@ -10,6 +10,8 @@ import (
 
 const (
 	UserID        = "user_id"
+	Type          = "type"
+	Timestamp     = "ts"
 	RoomID        = "room_id"
 	EventID       = "event_id"
 	RoomEventType = "output_room_event_type"
