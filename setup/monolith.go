@@ -41,7 +41,7 @@ type Monolith struct {
 	Config    *config.Dendrite
 	KeyRing   *gomatrixserverlib.KeyRing
 	Client    *fclient.Client
-	FedClient *fclient.FederationClient
+	FedClient fclient.FederationClient
 
 	AppserviceAPI appserviceAPI.AppServiceInternalAPI
 	FederationAPI federationAPI.FederationInternalAPI
@@ -58,7 +58,7 @@ func (m *Monolith) AddAllPublicRoutes(
 	processCtx *process.ProcessContext,
 	cfg *config.Dendrite,
 	routers httputil.Routers,
-	cm sqlutil.Connections,
+	cm *sqlutil.Connections,
 	natsInstance *jetstream.NATSInstance,
 	caches *caching.Caches,
 	enableMetrics bool,
@@ -73,7 +73,7 @@ func (m *Monolith) AddAllPublicRoutes(
 		m.ExtPublicRoomsProvider, enableMetrics,
 	)
 	federationapi.AddPublicRoutes(
-		processCtx, routers, cfg, natsInstance, m.UserAPI, m.FedClient, m.KeyRing, m.RoomserverAPI, m.FederationAPI, nil, enableMetrics,
+		processCtx, routers, cfg, natsInstance, m.UserAPI, m.FedClient, m.KeyRing, m.RoomserverAPI, m.FederationAPI, enableMetrics,
 	)
 	mediaapi.AddPublicRoutes(routers.Media, cm, cfg, m.UserAPI, m.Client)
 	syncapi.AddPublicRoutes(processCtx, routers, cfg, cm, natsInstance, m.UserAPI, m.RoomserverAPI, caches, enableMetrics)

@@ -25,10 +25,10 @@ import (
 
 // NewDatabase opens a new database
 func NewDatabase(
-	conMan sqlutil.Connections,
+	conMan *sqlutil.Connections,
 	dbProperties *config.DatabaseOptions,
 	cache caching.FederationCache,
-	isLocalServerName func(gomatrixserverlib.ServerName) bool,
+	isLocalServerName func(spec.ServerName) bool,
 ) (Database, error) {
 	switch {
 	case dbProperties.ConnectionString.IsSQLite():

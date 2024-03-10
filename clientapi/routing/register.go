@@ -37,6 +37,7 @@ import (
 	"github.com/matrix-org/dendrite/setup/config"
 
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/gomatrixserverlib/tokens"
 	"github.com/matrix-org/util"
 	"github.com/prometheus/client_golang/prometheus"
@@ -45,7 +46,6 @@ import (
 	"github.com/matrix-org/dendrite/clientapi/auth"
 	"github.com/matrix-org/dendrite/clientapi/auth/authtypes"
 	"github.com/matrix-org/dendrite/clientapi/httputil"
-	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	"github.com/matrix-org/dendrite/clientapi/threepid"
 	"github.com/matrix-org/dendrite/clientapi/userutil"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
@@ -165,7 +165,7 @@ func (d *sessionsDict) addCompletedSessionStage(sessionID string, stage authtype
 			return
 		}
 	}
-	d.sessions[sessionID] = append(sessions.sessions[sessionID], stage)
+	d.sessions[sessionID] = append(d.sessions[sessionID], stage)
 }
 
 func (d *sessionsDict) addDeviceToDelete(sessionID, deviceID string) {
@@ -207,10 +207,10 @@ var (
 // previous parameters with the ones supplied. This mean you cannot "build up" request params.
 type registerRequest struct {
 	// registration parameters
-	Password   string                       `json:"password"`
-	Username   string                       `json:"username"`
-	ServerName gomatrixserverlib.ServerName `json:"-"`
-	Admin      bool                         `json:"admin"`
+	Password   string          `json:"password"`
+	Username   string          `json:"username"`
+	ServerName spec.ServerName `json:"-"`
+	Admin      bool            `json:"admin"`
 	// user-interactive auth params
 	Auth authDict `json:"auth"`
 
@@ -225,6 +225,9 @@ type registerRequest struct {
 	// Application Services place Type in the root of their registration
 	// request, whereas clients place it in the authDict struct.
 	Type authtypes.LoginType `json:"type"`
+
+	// GlobeKeeper custom
+	Email string `json:"email"`
 }
 
 type authDict struct {
@@ -238,7 +241,7 @@ type authDict struct {
 	ThreePidCreds threepid.Credentials `json:"threepid_creds"`
 }
 
-// http://matrix.org/speculator/spec/HEAD/client_server/unstable.html#user-interactive-authentication-api
+// https://spec.matrix.org/v1.7/client-server-api/#user-interactive-authentication-api
 type userInteractiveResponse struct {
 	Flows     []authtypes.Flow       `json:"flows"`
 	Completed []authtypes.LoginType  `json:"completed"`
@@ -258,7 +261,7 @@ func newUserInteractiveResponse(
 	}
 }
 
-// http://matrix.org/speculator/spec/HEAD/client_server/unstable.html#post-matrix-client-unstable-register
+// https://spec.matrix.org/v1.7/client-server-api/#post_matrixclientv3register
 type registerResponse struct {
 	UserID      string `json:"user_id"`
 	AccessToken string `json:"access_token,omitempty"`
@@ -429,7 +432,7 @@ func validateApplicationService(
 	if matchedApplicationService == nil {
 		return "", &util.JSONResponse{
 			Code: http.StatusUnauthorized,
-			JSON: jsonerror.UnknownToken("Supplied access_token does not match any known application service"),
+			JSON: spec.UnknownToken("Supplied access_token does not match any known application service"),
 		}
 	}
 
@@ -440,7 +443,7 @@ func validateApplicationService(
 		// If we didn't find any matches, return M_EXCLUSIVE
 		return "", &util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.ASExclusive(fmt.Sprintf(
+			JSON: spec.ASExclusive(fmt.Sprintf(
 				"Supplied username %s did not match any namespaces for application service ID: %s", username, matchedApplicationService.ID)),
 		}
 	}
@@ -449,7 +452,7 @@ func validateApplicationService(
 	if UsernameMatchesMultipleExclusiveNamespaces(cfg, userID) {
 		return "", &util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.ASExclusive(fmt.Sprintf(
+			JSON: spec.ASExclusive(fmt.Sprintf(
 				"Supplied username %s matches multiple exclusive application service namespaces. Only 1 match allowed", username)),
 		}
 	}
@@ -464,7 +467,7 @@ func validateApplicationService(
 }
 
 // Register processes a /register request.
-// http://matrix.org/speculator/spec/HEAD/client_server/unstable.html#post-matrix-client-unstable-register
+// https://spec.matrix.org/v1.7/client-server-api/#post_matrixclientv3register
 func Register(
 	req *http.Request,
 	userAPI userapi.ClientUserAPI,
@@ -475,12 +478,12 @@ func Register(
 	if err != nil {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.NotJSON("Unable to read request body"),
+			JSON: spec.NotJSON("Unable to read request body"),
 		}
 	}
 
 	var r registerRequest
-	host := gomatrixserverlib.ServerName(req.Host)
+	host := spec.ServerName(req.Host)
 	if v := cfg.Matrix.VirtualHostForHTTPHost(host); v != nil {
 		r.ServerName = v.ServerName
 	} else {
@@ -519,7 +522,7 @@ func Register(
 	if _, err = strconv.ParseInt(r.Username, 10, 64); err == nil {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.InvalidUsername("Numeric user IDs are reserved"),
+			JSON: spec.InvalidUsername("Numeric user IDs are reserved"),
 		}
 	}
 	// Auto generate a numeric username if r.Username is empty
@@ -530,7 +533,10 @@ func Register(
 		nres := &userapi.QueryNumericLocalpartResponse{}
 		if err = userAPI.QueryNumericLocalpart(req.Context(), nreq, nres); err != nil {
 			util.GetLogger(req.Context()).WithError(err).Error("userAPI.QueryNumericLocalpart failed")
-			return jsonerror.InternalServerError()
+			return util.JSONResponse{
+				Code: http.StatusInternalServerError,
+				JSON: spec.InternalServerError{},
+			}
 		}
 		r.Username = strconv.FormatInt(nres.ID, 10)
 	}
@@ -553,7 +559,7 @@ func Register(
 		// type is not known or specified)
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.MissingArgument("A known registration type (e.g. m.login.application_service) must be specified if an access_token is provided"),
+			JSON: spec.MissingParam("A known registration type (e.g. m.login.application_service) must be specified if an access_token is provided"),
 		}
 	default:
 		// Spec-compliant case (neither the access_token nor the login type are
@@ -591,7 +597,7 @@ func handleGuestRegistration(
 	if !registrationEnabled || !guestsEnabled {
 		return util.JSONResponse{
 			Code: http.StatusForbidden,
-			JSON: jsonerror.Forbidden(
+			JSON: spec.Forbidden(
 				fmt.Sprintf("Guest registration is disabled on %q", r.ServerName),
 			),
 		}
@@ -605,7 +611,7 @@ func handleGuestRegistration(
 	if err != nil {
 		return util.JSONResponse{
 			Code: http.StatusInternalServerError,
-			JSON: jsonerror.Unknown("failed to create account: " + err.Error()),
+			JSON: spec.Unknown("failed to create account: " + err.Error()),
 		}
 	}
 	token, err := tokens.GenerateLoginToken(tokens.TokenOptions{
@@ -617,7 +623,7 @@ func handleGuestRegistration(
 	if err != nil {
 		return util.JSONResponse{
 			Code: http.StatusInternalServerError,
-			JSON: jsonerror.Unknown("Failed to generate access token"),
+			JSON: spec.Unknown("Failed to generate access token"),
 		}
 	}
 	//we don't allow guests to specify their own device_id
@@ -629,11 +635,12 @@ func handleGuestRegistration(
 		AccessToken:       token,
 		IPAddr:            req.RemoteAddr,
 		UserAgent:         req.UserAgent(),
+		FromRegistration:  true,
 	}, &devRes)
 	if err != nil {
 		return util.JSONResponse{
 			Code: http.StatusInternalServerError,
-			JSON: jsonerror.Unknown("failed to create device: " + err.Error()),
+			JSON: spec.Unknown("failed to create device: " + err.Error()),
 		}
 	}
 	return util.JSONResponse{
@@ -644,6 +651,16 @@ func handleGuestRegistration(
 			DeviceID:    devRes.Device.ID,
 		},
 	}
+}
+
+// localpartMatchesExclusiveNamespaces will check if a given username matches any
+// application service's exclusive users namespace
+func localpartMatchesExclusiveNamespaces(
+	cfg *config.ClientAPI,
+	localpart string,
+) bool {
+	userID := userutil.MakeUserID(localpart, cfg.Matrix.ServerName)
+	return cfg.Derived.ExclusiveApplicationServicesUsernameRegexp.MatchString(userID)
 }
 
 // handleRegistrationFlow will direct and complete registration flow stages
@@ -683,7 +700,7 @@ func handleRegistrationFlow(
 	if !registrationEnabled && r.Auth.Type != authtypes.LoginTypeSharedSecret {
 		return util.JSONResponse{
 			Code: http.StatusForbidden,
-			JSON: jsonerror.Forbidden(
+			JSON: spec.Forbidden(
 				fmt.Sprintf("Registration is disabled on %q", r.ServerName),
 			),
 		}
@@ -694,10 +711,10 @@ func handleRegistrationFlow(
 	// If an access token is provided, ignore this check this is an appservice
 	// request and we will validate in validateApplicationService
 	if len(cfg.Derived.ApplicationServices) != 0 &&
-		UsernameMatchesExclusiveNamespaces(cfg, r.Username) {
+		localpartMatchesExclusiveNamespaces(cfg, r.Username) {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.ASExclusive("This username is reserved by an application service."),
+			JSON: spec.ASExclusive("This username is reserved by an application service."),
 		}
 	}
 
@@ -708,15 +725,15 @@ func handleRegistrationFlow(
 		err := validateRecaptcha(cfg, r.Auth.Response, req.RemoteAddr)
 		switch err {
 		case ErrCaptchaDisabled:
-			return util.JSONResponse{Code: http.StatusForbidden, JSON: jsonerror.Unknown(err.Error())}
+			return util.JSONResponse{Code: http.StatusForbidden, JSON: spec.Unknown(err.Error())}
 		case ErrMissingResponse:
-			return util.JSONResponse{Code: http.StatusBadRequest, JSON: jsonerror.BadJSON(err.Error())}
+			return util.JSONResponse{Code: http.StatusBadRequest, JSON: spec.BadJSON(err.Error())}
 		case ErrInvalidCaptcha:
-			return util.JSONResponse{Code: http.StatusUnauthorized, JSON: jsonerror.BadJSON(err.Error())}
+			return util.JSONResponse{Code: http.StatusUnauthorized, JSON: spec.BadJSON(err.Error())}
 		case nil:
 		default:
 			util.GetLogger(req.Context()).WithError(err).Error("failed to validate recaptcha")
-			return util.JSONResponse{Code: http.StatusInternalServerError, JSON: jsonerror.InternalServerError()}
+			return util.JSONResponse{Code: http.StatusInternalServerError, JSON: spec.InternalServerError{}}
 		}
 
 		// Add Recaptcha to the list of completed registration stages
@@ -737,12 +754,15 @@ func handleRegistrationFlow(
 		bound, threePid.Address, threePid.Medium, err = threepid.CheckAssociation(req.Context(), r.Auth.ThreePidCreds, cfg, nil)
 		if err != nil {
 			util.GetLogger(req.Context()).WithError(err).Error("threepid.CheckAssociation failed")
-			return jsonerror.InternalServerError()
+			return util.JSONResponse{
+				Code: http.StatusInternalServerError,
+				JSON: spec.InternalServerError{},
+			}
 		}
 		if !bound {
 			return util.JSONResponse{
 				Code: http.StatusBadRequest,
-				JSON: jsonerror.MatrixError{
+				JSON: spec.MatrixError{
 					ErrCode: "M_THREEPID_AUTH_FAILED",
 					Err:     "Failed to auth 3pid",
 				},
@@ -757,7 +777,7 @@ func handleRegistrationFlow(
 	default:
 		return util.JSONResponse{
 			Code: http.StatusNotImplemented,
-			JSON: jsonerror.Unknown("unknown/unimplemented auth type"),
+			JSON: spec.Unknown("unknown/unimplemented auth type"),
 		}
 	}
 
@@ -789,19 +809,34 @@ func handleApplicationServiceRegistration(
 	if tokenErr != nil {
 		return util.JSONResponse{
 			Code: http.StatusUnauthorized,
-			JSON: jsonerror.MissingToken(tokenErr.Error()),
+			JSON: spec.MissingToken(tokenErr.Error()),
 		}
 	}
 
 	// Check application service register user request is valid.
 	// The application service's ID is returned if so.
-	appserviceID, err := validateApplicationService(
+	appserviceID, err := internal.ValidateApplicationServiceRequest(
 		cfg, r.Username, accessToken,
 	)
 	if err != nil {
 		return *err
 	}
 
+	//! Custom GlobeKeeper logic to support AS registration with email (3pid) & password.
+	if r.Email != "" && r.Password != "" {
+		// If no error, application service was successfully validated.
+		// Don't need to worry about appending to registration stages as
+		// application service registration is entirely separate.
+		return completeRegistration(
+			req.Context(), userAPI, r.Username, r.ServerName, "", r.Password, appserviceID, req.RemoteAddr, req.UserAgent(), r.Auth.Session,
+			r.InhibitLogin, r.InitialDisplayName, r.DeviceID, userapi.AccountTypeAppService, &authtypes.ThreePID{
+				Address:     r.Email,
+				Medium:      "email",
+				AddedAt:     time.Now().Unix(),
+				ValidatedAt: time.Now().Unix(),
+			},
+		)
+	}
 	// If no error, application service was successfully validated.
 	// Don't need to worry about appending to registration stages as
 	// application service registration is entirely separate.
@@ -849,7 +884,7 @@ func checkAndCompleteFlow(
 func completeRegistration(
 	ctx context.Context,
 	userAPI userapi.ClientUserAPI,
-	username string, serverName gomatrixserverlib.ServerName, displayName string,
+	username string, serverName spec.ServerName, displayName string,
 	password, appserviceID, ipAddr, userAgent, sessionID string,
 	inhibitLogin eventutil.WeakBoolean,
 	deviceDisplayName, deviceID *string,
@@ -859,14 +894,14 @@ func completeRegistration(
 	if username == "" {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.MissingArgument("Missing username"),
+			JSON: spec.MissingParam("Missing username"),
 		}
 	}
 	// Blank passwords are only allowed by registered application services
 	if password == "" && appserviceID == "" {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.MissingArgument("Missing password"),
+			JSON: spec.MissingParam("Missing password"),
 		}
 	}
 	var accRes userapi.PerformAccountCreationResponse
@@ -882,12 +917,12 @@ func completeRegistration(
 		if _, ok := err.(*userapi.ErrorConflict); ok { // user already exists
 			return util.JSONResponse{
 				Code: http.StatusBadRequest,
-				JSON: jsonerror.UserInUse("Desired user ID is already taken."),
+				JSON: spec.UserInUse("Desired user ID is already taken."),
 			}
 		}
 		return util.JSONResponse{
 			Code: http.StatusInternalServerError,
-			JSON: jsonerror.Unknown("failed to create account: " + err.Error()),
+			JSON: spec.Unknown("failed to create account: " + err.Error()),
 		}
 	}
 
@@ -905,7 +940,7 @@ func completeRegistration(
 		if err != nil {
 			return util.JSONResponse{
 				Code: http.StatusInternalServerError,
-				JSON: jsonerror.Unknown("Failed to save 3PID association: " + err.Error()),
+				JSON: spec.Unknown("Failed to save 3PID association: " + err.Error()),
 			}
 		}
 	}
@@ -925,7 +960,7 @@ func completeRegistration(
 	if err != nil {
 		return util.JSONResponse{
 			Code: http.StatusInternalServerError,
-			JSON: jsonerror.Unknown("Failed to generate access token"),
+			JSON: spec.Unknown("Failed to generate access token"),
 		}
 	}
 
@@ -934,7 +969,7 @@ func completeRegistration(
 		if err != nil {
 			return util.JSONResponse{
 				Code: http.StatusInternalServerError,
-				JSON: jsonerror.Unknown("failed to set display name: " + err.Error()),
+				JSON: spec.Unknown("failed to set display name: " + err.Error()),
 			}
 		}
 	}
@@ -948,11 +983,12 @@ func completeRegistration(
 		DeviceID:          deviceID,
 		IPAddr:            ipAddr,
 		UserAgent:         userAgent,
+		FromRegistration:  true,
 	}, &devRes)
 	if err != nil {
 		return util.JSONResponse{
 			Code: http.StatusInternalServerError,
-			JSON: jsonerror.Unknown("failed to create device: " + err.Error()),
+			JSON: spec.Unknown("failed to create device: " + err.Error()),
 		}
 	}
 
@@ -1036,7 +1072,7 @@ func RegisterAvailable(
 	// Squash username to all lowercase letters
 	username = strings.ToLower(username)
 	domain := cfg.Matrix.ServerName
-	host := gomatrixserverlib.ServerName(req.Host)
+	host := spec.ServerName(req.Host)
 	if v := cfg.Matrix.VirtualHostForHTTPHost(host); v != nil {
 		domain = v.ServerName
 	}
@@ -1047,7 +1083,7 @@ func RegisterAvailable(
 		if v.ServerName == domain && !v.AllowRegistration {
 			return util.JSONResponse{
 				Code: http.StatusForbidden,
-				JSON: jsonerror.Forbidden(
+				JSON: spec.Forbidden(
 					fmt.Sprintf("Registration is not allowed on %q", string(v.ServerName)),
 				),
 			}
@@ -1064,7 +1100,7 @@ func RegisterAvailable(
 		if appservice.OwnsNamespaceCoveringUserId(userID) {
 			return util.JSONResponse{
 				Code: http.StatusBadRequest,
-				JSON: jsonerror.UserInUse("Desired user ID is reserved by an application service."),
+				JSON: spec.UserInUse("Desired user ID is reserved by an application service."),
 			}
 		}
 	}
@@ -1077,14 +1113,14 @@ func RegisterAvailable(
 	if err != nil {
 		return util.JSONResponse{
 			Code: http.StatusInternalServerError,
-			JSON: jsonerror.Unknown("failed to check availability:" + err.Error()),
+			JSON: spec.Unknown("failed to check availability:" + err.Error()),
 		}
 	}
 
 	if !res.Available {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.UserInUse("Desired User ID is already taken."),
+			JSON: spec.UserInUse("Desired User ID is already taken."),
 		}
 	}
 
@@ -1101,7 +1137,7 @@ func handleSharedSecretRegistration(cfg *config.ClientAPI, userAPI userapi.Clien
 	if err != nil {
 		return util.JSONResponse{
 			Code: 400,
-			JSON: jsonerror.BadJSON(fmt.Sprintf("malformed json: %s", err)),
+			JSON: spec.BadJSON(fmt.Sprintf("malformed json: %s", err)),
 		}
 	}
 	valid, err := sr.IsValidMacLogin(ssrr.Nonce, ssrr.User, ssrr.Password, ssrr.Admin, ssrr.MacBytes)
@@ -1111,7 +1147,7 @@ func handleSharedSecretRegistration(cfg *config.ClientAPI, userAPI userapi.Clien
 	if !valid {
 		return util.JSONResponse{
 			Code: 403,
-			JSON: jsonerror.Forbidden("bad mac"),
+			JSON: spec.Forbidden("bad mac"),
 		}
 	}
 	// downcase capitals

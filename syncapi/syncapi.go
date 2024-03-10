@@ -49,7 +49,7 @@ func AddPublicRoutes(
 	processContext *process.ProcessContext,
 	routers httputil.Routers,
 	dendriteCfg *config.Dendrite,
-	cm sqlutil.Connections,
+	cm *sqlutil.Connections,
 	natsInstance *jetstream.NATSInstance,
 	userAPI userapi.SyncUserAPI,
 	rsAPI api.SyncRoomserverAPI,
@@ -116,10 +116,17 @@ func AddPublicRoutes(
 		logrus.WithError(err).Panicf("failed to start key change consumer")
 	}
 
+	var asProducer *producers.AppserviceEventProducer
+	if len(dendriteCfg.AppServiceAPI.Derived.ApplicationServices) > 0 {
+		asProducer = &producers.AppserviceEventProducer{
+			JetStream: js, Topic: dendriteCfg.Global.JetStream.Prefixed(jetstream.OutputAppserviceEvent),
+		}
+	}
+
 	scheduler := InitDataRetentionScheduler(processContext, rsAPI, connnectQ)
 	roomConsumer := consumers.NewOutputRoomEventConsumer(
 		processContext, &dendriteCfg.SyncAPI, js, syncDB, notifier, streams.PDUStreamProvider,
-		streams.InviteStreamProvider, rsAPI, fts, scheduler,
+		streams.InviteStreamProvider, rsAPI, fts, asProducer, scheduler,
 	)
 	if err = roomConsumer.Start(); err != nil {
 		logrus.WithError(err).Panicf("failed to start room server consumer")
@@ -167,10 +174,12 @@ func AddPublicRoutes(
 	if err = multiRoomConsumer.Start(); err != nil {
 		logrus.WithError(err).Panicf("failed to start multiroom consumer")
 	}
+	rateLimits := httputil.NewRateLimits(&dendriteCfg.ClientAPI.RateLimiting)
 
 	routing.Setup(
 		routers.Client, requestPool, syncDB, userAPI,
 		rsAPI, &dendriteCfg.SyncAPI, caches, fts,
+		rateLimits,
 	)
 
 	go func() {

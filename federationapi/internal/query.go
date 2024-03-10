@@ -7,6 +7,7 @@ import (
 
 	"github.com/matrix-org/dendrite/federationapi/api"
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 )
 
@@ -25,7 +26,7 @@ func (f *FederationInternalAPI) QueryJoinedHostServerNamesInRoom(
 	return
 }
 
-func (a *FederationInternalAPI) fetchServerKeysDirectly(ctx context.Context, serverName gomatrixserverlib.ServerName) (*gomatrixserverlib.ServerKeys, error) {
+func (a *FederationInternalAPI) fetchServerKeysDirectly(ctx context.Context, serverName spec.ServerName) (*gomatrixserverlib.ServerKeys, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 	ires, err := a.doRequestIfNotBackingOffOrBlacklisted(serverName, func() (interface{}, error) {
@@ -42,6 +43,15 @@ func (a *FederationInternalAPI) fetchServerKeysFromCache(
 	ctx context.Context, req *api.QueryServerKeysRequest,
 ) ([]gomatrixserverlib.ServerKeys, error) {
 	var results []gomatrixserverlib.ServerKeys
+
+	// We got a request for _all_ server keys, return them.
+	if len(req.KeyIDToCriteria) == 0 {
+		serverKeysResponses, _ := a.db.GetNotaryKeys(ctx, req.ServerName, []gomatrixserverlib.KeyID{})
+		if len(serverKeysResponses) == 0 {
+			return nil, fmt.Errorf("failed to find server key response for server %s", req.ServerName)
+		}
+		return serverKeysResponses, nil
+	}
 	for keyID, criteria := range req.KeyIDToCriteria {
 		serverKeysResponses, _ := a.db.GetNotaryKeys(ctx, req.ServerName, []gomatrixserverlib.KeyID{keyID})
 		if len(serverKeysResponses) == 0 {

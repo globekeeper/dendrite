@@ -16,6 +16,7 @@ package internal
 
 import (
 	"context"
+	"crypto/ed25519"
 	"testing"
 
 	"github.com/matrix-org/dendrite/federationapi/api"
@@ -24,26 +25,26 @@ import (
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/setup/process"
 	"github.com/matrix-org/dendrite/test"
-	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/fclient"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/stretchr/testify/assert"
 )
 
 type testFedClient struct {
-	api.FederationClient
+	fclient.FederationClient
 	queryKeysCalled bool
 	claimKeysCalled bool
 	shouldFail      bool
 }
 
-func (t *testFedClient) LookupRoomAlias(ctx context.Context, origin, s gomatrixserverlib.ServerName, roomAlias string) (res fclient.RespDirectory, err error) {
+func (t *testFedClient) LookupRoomAlias(ctx context.Context, origin, s spec.ServerName, roomAlias string) (res fclient.RespDirectory, err error) {
 	return fclient.RespDirectory{}, nil
 }
 
 func TestPerformWakeupServers(t *testing.T) {
 	testDB := test.NewInMemoryFederationDatabase()
 
-	server := gomatrixserverlib.ServerName("wakeup")
+	server := spec.ServerName("wakeup")
 	testDB.AddServerToBlacklist(server)
 	testDB.SetServerAssumedOffline(context.Background(), server)
 	blacklisted, err := testDB.IsServerBlacklisted(server)
@@ -53,10 +54,14 @@ func TestPerformWakeupServers(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, offline)
 
+	_, key, err := ed25519.GenerateKey(nil)
+	assert.NoError(t, err)
 	cfg := config.FederationAPI{
 		Matrix: &config.Global{
 			SigningIdentity: fclient.SigningIdentity{
 				ServerName: "relay",
+				KeyID:      "ed25519:1",
+				PrivateKey: key,
 			},
 		},
 	}
@@ -65,7 +70,7 @@ func TestPerformWakeupServers(t *testing.T) {
 	queues := queue.NewOutgoingQueues(
 		testDB, process.NewProcessContext(),
 		false,
-		cfg.Matrix.ServerName, fedClient, nil, &stats,
+		cfg.Matrix.ServerName, fedClient, &stats,
 		nil,
 	)
 	fedAPI := NewFederationInternalAPI(
@@ -73,7 +78,7 @@ func TestPerformWakeupServers(t *testing.T) {
 	)
 
 	req := api.PerformWakeupServersRequest{
-		ServerNames: []gomatrixserverlib.ServerName{server},
+		ServerNames: []spec.ServerName{server},
 	}
 	res := api.PerformWakeupServersResponse{}
 	err = fedAPI.PerformWakeupServers(context.Background(), &req, &res)
@@ -90,15 +95,19 @@ func TestPerformWakeupServers(t *testing.T) {
 func TestQueryRelayServers(t *testing.T) {
 	testDB := test.NewInMemoryFederationDatabase()
 
-	server := gomatrixserverlib.ServerName("wakeup")
-	relayServers := []gomatrixserverlib.ServerName{"relay1", "relay2"}
+	server := spec.ServerName("wakeup")
+	relayServers := []spec.ServerName{"relay1", "relay2"}
 	err := testDB.P2PAddRelayServersForServer(context.Background(), server, relayServers)
 	assert.NoError(t, err)
 
+	_, key, err := ed25519.GenerateKey(nil)
+	assert.NoError(t, err)
 	cfg := config.FederationAPI{
 		Matrix: &config.Global{
 			SigningIdentity: fclient.SigningIdentity{
 				ServerName: "relay",
+				KeyID:      "ed25519:1",
+				PrivateKey: key,
 			},
 		},
 	}
@@ -107,7 +116,7 @@ func TestQueryRelayServers(t *testing.T) {
 	queues := queue.NewOutgoingQueues(
 		testDB, process.NewProcessContext(),
 		false,
-		cfg.Matrix.ServerName, fedClient, nil, &stats,
+		cfg.Matrix.ServerName, fedClient, &stats,
 		nil,
 	)
 	fedAPI := NewFederationInternalAPI(
@@ -127,15 +136,19 @@ func TestQueryRelayServers(t *testing.T) {
 func TestRemoveRelayServers(t *testing.T) {
 	testDB := test.NewInMemoryFederationDatabase()
 
-	server := gomatrixserverlib.ServerName("wakeup")
-	relayServers := []gomatrixserverlib.ServerName{"relay1", "relay2"}
+	server := spec.ServerName("wakeup")
+	relayServers := []spec.ServerName{"relay1", "relay2"}
 	err := testDB.P2PAddRelayServersForServer(context.Background(), server, relayServers)
 	assert.NoError(t, err)
 
+	_, key, err := ed25519.GenerateKey(nil)
+	assert.NoError(t, err)
 	cfg := config.FederationAPI{
 		Matrix: &config.Global{
 			SigningIdentity: fclient.SigningIdentity{
 				ServerName: "relay",
+				KeyID:      "ed25519:1",
+				PrivateKey: key,
 			},
 		},
 	}
@@ -144,7 +157,7 @@ func TestRemoveRelayServers(t *testing.T) {
 	queues := queue.NewOutgoingQueues(
 		testDB, process.NewProcessContext(),
 		false,
-		cfg.Matrix.ServerName, fedClient, nil, &stats,
+		cfg.Matrix.ServerName, fedClient, &stats,
 		nil,
 	)
 	fedAPI := NewFederationInternalAPI(
@@ -153,7 +166,7 @@ func TestRemoveRelayServers(t *testing.T) {
 
 	req := api.P2PRemoveRelayServersRequest{
 		Server:       server,
-		RelayServers: []gomatrixserverlib.ServerName{"relay1"},
+		RelayServers: []spec.ServerName{"relay1"},
 	}
 	res := api.P2PRemoveRelayServersResponse{}
 	err = fedAPI.P2PRemoveRelayServers(context.Background(), &req, &res)
@@ -162,16 +175,20 @@ func TestRemoveRelayServers(t *testing.T) {
 	finalRelays, err := testDB.P2PGetRelayServersForServer(context.Background(), server)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(finalRelays))
-	assert.Equal(t, gomatrixserverlib.ServerName("relay2"), finalRelays[0])
+	assert.Equal(t, spec.ServerName("relay2"), finalRelays[0])
 }
 
 func TestPerformDirectoryLookup(t *testing.T) {
 	testDB := test.NewInMemoryFederationDatabase()
 
+	_, key, err := ed25519.GenerateKey(nil)
+	assert.NoError(t, err)
 	cfg := config.FederationAPI{
 		Matrix: &config.Global{
 			SigningIdentity: fclient.SigningIdentity{
 				ServerName: "relay",
+				KeyID:      "ed25519:1",
+				PrivateKey: key,
 			},
 		},
 	}
@@ -180,7 +197,7 @@ func TestPerformDirectoryLookup(t *testing.T) {
 	queues := queue.NewOutgoingQueues(
 		testDB, process.NewProcessContext(),
 		false,
-		cfg.Matrix.ServerName, fedClient, nil, &stats,
+		cfg.Matrix.ServerName, fedClient, &stats,
 		nil,
 	)
 	fedAPI := NewFederationInternalAPI(
@@ -192,21 +209,25 @@ func TestPerformDirectoryLookup(t *testing.T) {
 		ServerName: "server",
 	}
 	res := api.PerformDirectoryLookupResponse{}
-	err := fedAPI.PerformDirectoryLookup(context.Background(), &req, &res)
+	err = fedAPI.PerformDirectoryLookup(context.Background(), &req, &res)
 	assert.NoError(t, err)
 }
 
 func TestPerformDirectoryLookupRelaying(t *testing.T) {
 	testDB := test.NewInMemoryFederationDatabase()
 
-	server := gomatrixserverlib.ServerName("wakeup")
+	server := spec.ServerName("wakeup")
 	testDB.SetServerAssumedOffline(context.Background(), server)
-	testDB.P2PAddRelayServersForServer(context.Background(), server, []gomatrixserverlib.ServerName{"relay"})
+	testDB.P2PAddRelayServersForServer(context.Background(), server, []spec.ServerName{"relay"})
 
+	_, key, err := ed25519.GenerateKey(nil)
+	assert.NoError(t, err)
 	cfg := config.FederationAPI{
 		Matrix: &config.Global{
 			SigningIdentity: fclient.SigningIdentity{
-				ServerName: server,
+				ServerName: "relay",
+				KeyID:      "ed25519:1",
+				PrivateKey: key,
 			},
 		},
 	}
@@ -215,7 +236,7 @@ func TestPerformDirectoryLookupRelaying(t *testing.T) {
 	queues := queue.NewOutgoingQueues(
 		testDB, process.NewProcessContext(),
 		false,
-		cfg.Matrix.ServerName, fedClient, nil, &stats,
+		cfg.Matrix.ServerName, fedClient, &stats,
 		nil,
 	)
 	fedAPI := NewFederationInternalAPI(
@@ -227,6 +248,6 @@ func TestPerformDirectoryLookupRelaying(t *testing.T) {
 		ServerName: server,
 	}
 	res := api.PerformDirectoryLookupResponse{}
-	err := fedAPI.PerformDirectoryLookup(context.Background(), &req, &res)
+	err = fedAPI.PerformDirectoryLookup(context.Background(), &req, &res)
 	assert.Error(t, err)
 }

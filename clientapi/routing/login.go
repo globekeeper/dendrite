@@ -19,20 +19,20 @@ import (
 	"net/http"
 
 	"github.com/matrix-org/dendrite/clientapi/auth"
-	"github.com/matrix-org/dendrite/clientapi/jsonerror"
+	"github.com/matrix-org/dendrite/clientapi/auth/authtypes"
 	"github.com/matrix-org/dendrite/clientapi/ratelimit"
 	"github.com/matrix-org/dendrite/clientapi/userutil"
 	"github.com/matrix-org/dendrite/setup/config"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
-	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 )
 
 type loginResponse struct {
-	UserID      string                       `json:"user_id"`
-	AccessToken string                       `json:"access_token"`
-	HomeServer  gomatrixserverlib.ServerName `json:"home_server"`
-	DeviceID    string                       `json:"device_id"`
+	UserID      string          `json:"user_id"`
+	AccessToken string          `json:"access_token"`
+	HomeServer  spec.ServerName `json:"home_server"`
+	DeviceID    string          `json:"device_id"`
 }
 
 type flows struct {
@@ -43,15 +43,6 @@ type flow struct {
 	Type string `json:"type"`
 }
 
-func passwordLogin() flows {
-	f := flows{}
-	s := flow{
-		Type: "m.login.password",
-	}
-	f.Flows = append(f.Flows, s)
-	return f
-}
-
 // Login implements GET and POST /login
 func Login(
 	req *http.Request, userAPI userapi.ClientUserAPI,
@@ -59,13 +50,19 @@ func Login(
 	rt *ratelimit.RtFailedLogin,
 ) util.JSONResponse {
 	if req.Method == http.MethodGet {
-		// TODO: support other forms of login other than password, depending on config options
+		loginFlows := []flow{{Type: authtypes.LoginTypePassword}}
+		if len(cfg.Derived.ApplicationServices) > 0 {
+			loginFlows = append(loginFlows, flow{Type: authtypes.LoginTypeApplicationService})
+		}
+		// TODO: support other forms of login, depending on config options
 		return util.JSONResponse{
 			Code: http.StatusOK,
-			JSON: passwordLogin(),
+			JSON: flows{
+				Flows: loginFlows,
+			},
 		}
 	} else if req.Method == http.MethodPost {
-		login, cleanup, authErr := auth.LoginFromJSONReader(req.Context(), req.Body, userAPI, cfg, rt)
+		login, cleanup, authErr := auth.LoginFromJSONReader(req, userAPI, userAPI, cfg, rt)
 		if authErr != nil {
 			return *authErr
 		}
@@ -87,7 +84,7 @@ func Login(
 	}
 	return util.JSONResponse{
 		Code: http.StatusMethodNotAllowed,
-		JSON: jsonerror.NotFound("Bad method"),
+		JSON: spec.NotFound("Bad method"),
 	}
 }
 
@@ -98,13 +95,19 @@ func completeAuth(
 	token, err := auth.GenerateAccessToken()
 	if err != nil {
 		util.GetLogger(ctx).WithError(err).Error("auth.GenerateAccessToken failed")
-		return jsonerror.InternalServerError()
+		return util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.InternalServerError{},
+		}
 	}
 
 	localpart, serverName, err := userutil.ParseUsernameParam(login.Username(), cfg)
 	if err != nil {
 		util.GetLogger(ctx).WithError(err).Error("auth.ParseUsernameParam failed")
-		return jsonerror.InternalServerError()
+		return util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.InternalServerError{},
+		}
 	}
 
 	var performRes userapi.PerformDeviceCreationResponse
@@ -120,7 +123,7 @@ func completeAuth(
 	if err != nil {
 		return util.JSONResponse{
 			Code: http.StatusInternalServerError,
-			JSON: jsonerror.Unknown("failed to create device: " + err.Error()),
+			JSON: spec.Unknown("failed to create device: " + err.Error()),
 		}
 	}
 

@@ -15,16 +15,15 @@
 package auth
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 
 	"github.com/matrix-org/dendrite/clientapi/auth/authtypes"
-	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	"github.com/matrix-org/dendrite/clientapi/ratelimit"
 	"github.com/matrix-org/dendrite/setup/config"
 	uapi "github.com/matrix-org/dendrite/userapi/api"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 )
 
@@ -33,12 +32,22 @@ import (
 // called after authorization has completed, with the result of the authorization.
 // If the final return value is non-nil, an error occurred and the cleanup function
 // is nil.
-func LoginFromJSONReader(ctx context.Context, r io.Reader, useraccountAPI uapi.ClientUserAPI, cfg *config.ClientAPI, rt *ratelimit.RtFailedLogin) (*Login, LoginCleanupFunc, *util.JSONResponse) {
-	reqBytes, err := io.ReadAll(r)
+// func LoginFromJSONReader(ctx context.Context, r io.Reader,
+//
+//	useraccountAPI uapi.ClientUserAPI,
+//	cfg *config.ClientAPI, rt *ratelimit.RtFailedLogin) (*Login, LoginCleanupFunc, *util.JSONResponse) {
+func LoginFromJSONReader(
+	req *http.Request,
+	useraccountAPI uapi.ClientUserAPI,
+	userAPI UserInternalAPIForLogin,
+	cfg *config.ClientAPI,
+	rt *ratelimit.RtFailedLogin,
+) (*Login, LoginCleanupFunc, *util.JSONResponse) {
+	reqBytes, err := io.ReadAll(req.Body)
 	if err != nil {
 		err := &util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.BadJSON("Reading request body failed: " + err.Error()),
+			JSON: spec.BadJSON("Reading request body failed: " + err.Error()),
 		}
 		return nil, nil, err
 	}
@@ -50,7 +59,7 @@ func LoginFromJSONReader(ctx context.Context, r io.Reader, useraccountAPI uapi.C
 	if err := json.Unmarshal(reqBytes, &header); err != nil {
 		err := &util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.BadJSON("Reading request body failed: " + err.Error()),
+			JSON: spec.BadJSON("Reading request body failed: " + err.Error()),
 		}
 		return nil, nil, err
 	}
@@ -63,12 +72,25 @@ func LoginFromJSONReader(ctx context.Context, r io.Reader, useraccountAPI uapi.C
 			Config:        cfg,
 			Rt:            rt,
 			InhibitDevice: header.InhibitDevice,
-			UserLoginAPI:  useraccountAPI,
 		}
 	case authtypes.LoginTypeToken:
 		typ = &LoginTypeToken{
 			UserAPI: useraccountAPI,
 			Config:  cfg,
+		}
+	case authtypes.LoginTypeApplicationService:
+		token, err := ExtractAccessToken(req)
+		if err != nil {
+			err := &util.JSONResponse{
+				Code: http.StatusForbidden,
+				JSON: spec.MissingToken(err.Error()),
+			}
+			return nil, nil, err
+		}
+
+		typ = &LoginTypeApplicationService{
+			Config: cfg,
+			Token:  token,
 		}
 	case authtypes.LoginTypeJwt:
 		typ = &LoginTypeTokenJwt{
@@ -77,12 +99,12 @@ func LoginFromJSONReader(ctx context.Context, r io.Reader, useraccountAPI uapi.C
 	default:
 		err := util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.InvalidArgumentValue("unhandled login type: " + header.Type),
+			JSON: spec.InvalidParam("unhandled login type: " + header.Type),
 		}
 		return nil, nil, &err
 	}
 
-	return typ.LoginFromJSON(ctx, reqBytes)
+	return typ.LoginFromJSON(req.Context(), reqBytes)
 }
 
 // UserInternalAPIForLogin contains the aspects of UserAPI required for logging in.

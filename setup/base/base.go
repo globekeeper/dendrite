@@ -50,6 +50,9 @@ import (
 //go:embed static/*.gotmpl
 var staticContent embed.FS
 
+//go:embed static/client/login
+var loginFallback embed.FS
+
 const HTTPServerTimeout = time.Minute * 5
 
 // CreateClient creates a new client (normally used for media fetch requests).
@@ -74,7 +77,7 @@ func CreateClient(cfg *config.Dendrite, dnsCache *fclient.DNSCache) *fclient.Cli
 
 // CreateFederationClient creates a new federation client. Should only be called
 // once per component.
-func CreateFederationClient(cfg *config.Dendrite, dnsCache *fclient.DNSCache) *fclient.FederationClient {
+func CreateFederationClient(cfg *config.Dendrite, dnsCache *fclient.DNSCache) fclient.FederationClient {
 	identities := cfg.Global.SigningIdentities()
 	if cfg.Global.DisableFederation {
 		return fclient.NewFederationClient(
@@ -85,6 +88,7 @@ func CreateFederationClient(cfg *config.Dendrite, dnsCache *fclient.DNSCache) *f
 		fclient.WithTimeout(time.Minute * 5),
 		fclient.WithSkipVerify(cfg.FederationAPI.DisableTLSValidation),
 		fclient.WithKeepAlives(!cfg.FederationAPI.DisableHTTPKeepalives),
+		fclient.WithUserAgent(fmt.Sprintf("Dendrite/%s", internal.VersionString())),
 	}
 	if cfg.Global.DNSCache.Enabled {
 		opts = append(opts, fclient.WithDNSCache(dnsCache))
@@ -92,7 +96,6 @@ func CreateFederationClient(cfg *config.Dendrite, dnsCache *fclient.DNSCache) *f
 	client := fclient.NewFederationClient(
 		identities, opts...,
 	)
-	client.SetUserAgent(fmt.Sprintf("Dendrite/%s", internal.VersionString()))
 	return client
 }
 
@@ -157,6 +160,14 @@ func SetupAndServeHTTP(
 	routers.Static.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(landingPage.Bytes())
 	})
+
+	// We only need the files beneath the static/client/login folder.
+	sub, err := fs.Sub(loginFallback, "static/client/login")
+	if err != nil {
+		logrus.Panicf("unable to read embedded files, this should never happen: %s", err)
+	}
+	// Serve a static page for login fallback
+	routers.Static.PathPrefix("/client/login/").Handler(http.StripPrefix("/_matrix/static/client/login/", http.FileServer(http.FS(sub))))
 
 	var clientHandler http.Handler
 	clientHandler = routers.Client

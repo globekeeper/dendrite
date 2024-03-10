@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"mime"
 	"net/http"
 	"net/url"
@@ -30,14 +31,13 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	"github.com/matrix-org/dendrite/mediaapi/fileutils"
 	"github.com/matrix-org/dendrite/mediaapi/storage"
 	"github.com/matrix-org/dendrite/mediaapi/thumbnailer"
 	"github.com/matrix-org/dendrite/mediaapi/types"
 	"github.com/matrix-org/dendrite/setup/config"
-	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/fclient"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -63,6 +63,40 @@ type downloadRequest struct {
 	DownloadFilename   string
 }
 
+// Taken from: https://github.com/matrix-org/synapse/blob/c3627d0f99ed5a23479305dc2bd0e71ca25ce2b1/synapse/media/_base.py#L53C1-L84
+// A list of all content types that are "safe" to be rendered inline in a browser.
+var allowInlineTypes = map[types.ContentType]struct{}{
+	"text/css":            {},
+	"text/plain":          {},
+	"text/csv":            {},
+	"application/json":    {},
+	"application/ld+json": {},
+	// We allow some media files deemed as safe, which comes from the matrix-react-sdk.
+	// https://github.com/matrix-org/matrix-react-sdk/blob/a70fcfd0bcf7f8c85986da18001ea11597989a7c/src/utils/blobs.ts#L51
+	// SVGs are *intentionally* omitted.
+	"image/jpeg":      {},
+	"image/gif":       {},
+	"image/png":       {},
+	"image/apng":      {},
+	"image/webp":      {},
+	"image/avif":      {},
+	"video/mp4":       {},
+	"video/webm":      {},
+	"video/ogg":       {},
+	"video/quicktime": {},
+	"audio/mp4":       {},
+	"audio/webm":      {},
+	"audio/aac":       {},
+	"audio/mpeg":      {},
+	"audio/ogg":       {},
+	"audio/wave":      {},
+	"audio/wav":       {},
+	"audio/x-wav":     {},
+	"audio/x-pn-wav":  {},
+	"audio/flac":      {},
+	"audio/x-flac":    {},
+}
+
 // Download implements GET /download and GET /thumbnail
 // Files from this server (i.e. origin == cfg.ServerName) are served directly
 // Files from remote servers (i.e. origin != cfg.ServerName) are cached locally.
@@ -72,7 +106,7 @@ type downloadRequest struct {
 func Download(
 	w http.ResponseWriter,
 	req *http.Request,
-	origin gomatrixserverlib.ServerName,
+	origin spec.ServerName,
 	mediaID types.MediaID,
 	cfg *config.MediaAPI,
 	db storage.Database,
@@ -127,10 +161,21 @@ func Download(
 		activeRemoteRequests, activeThumbnailGeneration,
 	)
 	if err != nil {
+		// If we bubbled up a os.PathError, e.g. no such file or directory, don't send
+		// it to the client, be more generic.
+		var perr *fs.PathError
+		if errors.As(err, &perr) {
+			dReq.Logger.WithError(err).Error("failed to open file")
+			dReq.jsonErrorResponse(w, util.JSONResponse{
+				Code: http.StatusNotFound,
+				JSON: spec.NotFound("File not found"),
+			})
+			return
+		}
 		// TODO: Handle the fact we might have started writing the response
 		dReq.jsonErrorResponse(w, util.JSONResponse{
 			Code: http.StatusNotFound,
-			JSON: jsonerror.NotFound("Failed to download: " + err.Error()),
+			JSON: spec.NotFound("Failed to download: " + err.Error()),
 		})
 		return
 	}
@@ -138,7 +183,7 @@ func Download(
 	if metadata == nil {
 		dReq.jsonErrorResponse(w, util.JSONResponse{
 			Code: http.StatusNotFound,
-			JSON: jsonerror.NotFound("File not found"),
+			JSON: spec.NotFound("File not found"),
 		})
 		return
 	}
@@ -168,7 +213,7 @@ func (r *downloadRequest) Validate() *util.JSONResponse {
 	if !mediaIDRegex.MatchString(string(r.MediaMetadata.MediaID)) {
 		return &util.JSONResponse{
 			Code: http.StatusNotFound,
-			JSON: jsonerror.NotFound(fmt.Sprintf("mediaId must be a non-empty string using only characters in %v", mediaIDCharacters)),
+			JSON: spec.NotFound(fmt.Sprintf("mediaId must be a non-empty string using only characters in %v", mediaIDCharacters)),
 		}
 	}
 	// Note: the origin will be validated either by comparison to the configured server name of this homeserver
@@ -176,7 +221,7 @@ func (r *downloadRequest) Validate() *util.JSONResponse {
 	if r.MediaMetadata.Origin == "" {
 		return &util.JSONResponse{
 			Code: http.StatusNotFound,
-			JSON: jsonerror.NotFound("serverName must be a non-empty string"),
+			JSON: spec.NotFound("serverName must be a non-empty string"),
 		}
 	}
 
@@ -184,7 +229,7 @@ func (r *downloadRequest) Validate() *util.JSONResponse {
 		if r.ThumbnailSize.Width <= 0 || r.ThumbnailSize.Height <= 0 {
 			return &util.JSONResponse{
 				Code: http.StatusBadRequest,
-				JSON: jsonerror.Unknown("width and height must be greater than 0"),
+				JSON: spec.Unknown("width and height must be greater than 0"),
 			}
 		}
 		// Default method to scale if not set
@@ -194,7 +239,7 @@ func (r *downloadRequest) Validate() *util.JSONResponse {
 		if r.ThumbnailSize.ResizeMethod != types.Crop && r.ThumbnailSize.ResizeMethod != types.Scale {
 			return &util.JSONResponse{
 				Code: http.StatusBadRequest,
-				JSON: jsonerror.Unknown("method must be one of crop or scale"),
+				JSON: spec.Unknown("method must be one of crop or scale"),
 			}
 		}
 	}
@@ -342,6 +387,7 @@ func (r *downloadRequest) addDownloadFilenameToHeaders(
 	}
 
 	if len(filename) == 0 {
+		w.Header().Set("Content-Disposition", contentDispositionFor(""))
 		return nil
 	}
 
@@ -371,20 +417,21 @@ func (r *downloadRequest) addDownloadFilenameToHeaders(
 	unescaped = strings.ReplaceAll(unescaped, `\`, `\\"`)
 	unescaped = strings.ReplaceAll(unescaped, `"`, `\"`)
 
+	disposition := contentDispositionFor(responseMetadata.ContentType)
 	if isASCII {
 		// For ASCII filenames, we should only quote the filename if
 		// it needs to be done, e.g. it contains a space or a character
 		// that would otherwise be parsed as a control character in the
 		// Content-Disposition header
 		w.Header().Set("Content-Disposition", fmt.Sprintf(
-			`inline; filename=%s%s%s`,
-			quote, unescaped, quote,
+			`%s; filename=%s%s%s`,
+			disposition, quote, unescaped, quote,
 		))
 	} else {
 		// For UTF-8 filenames, we quote always, as that's the standard
 		w.Header().Set("Content-Disposition", fmt.Sprintf(
-			`inline; filename*=utf-8''%s`,
-			url.QueryEscape(unescaped),
+			`%s; filename*=utf-8''%s`,
+			disposition, url.QueryEscape(unescaped),
 		))
 	}
 
@@ -795,4 +842,13 @@ func (r *downloadRequest) fetchRemoteFile(
 	}
 
 	return types.Path(finalPath), duplicate, nil
+}
+
+// contentDispositionFor returns the Content-Disposition for a given
+// content type.
+func contentDispositionFor(contentType types.ContentType) string {
+	if _, ok := allowInlineTypes[contentType]; ok {
+		return "inline"
+	}
+	return "attachment"
 }

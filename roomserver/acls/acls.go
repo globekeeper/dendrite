@@ -23,9 +23,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/sirupsen/logrus"
 )
+
+const MRoomServerACL = "m.room.server_acl"
 
 type ServerACLDatabase interface {
 	// GetKnownRooms returns a list of all rooms we know about.
@@ -33,7 +37,7 @@ type ServerACLDatabase interface {
 	// GetStateEvent returns the state event of a given type for a given room with a given state key
 	// If no event could be found, returns nil
 	// If there was an issue during the retrieval, returns an error
-	GetStateEvent(ctx context.Context, roomID, evType, stateKey string) (*gomatrixserverlib.HeaderedEvent, error)
+	GetStateEvent(ctx context.Context, roomID, evType, stateKey string) (*types.HeaderedEvent, error)
 }
 
 type ServerACLs struct {
@@ -55,13 +59,13 @@ func NewServerACLs(db ServerACLDatabase) *ServerACLs {
 	// do then we'll process it into memory so that we have the regexes to
 	// hand.
 	for _, room := range rooms {
-		state, err := db.GetStateEvent(ctx, room, "m.room.server_acl", "")
+		state, err := db.GetStateEvent(ctx, room, MRoomServerACL, "")
 		if err != nil {
 			logrus.WithError(err).Errorf("Failed to get server ACLs for room %q", room)
 			continue
 		}
 		if state != nil {
-			acls.OnServerACLUpdate(state.Event)
+			acls.OnServerACLUpdate(state.PDU)
 		}
 	}
 	return acls
@@ -86,7 +90,7 @@ func compileACLRegex(orig string) (*regexp.Regexp, error) {
 	return regexp.Compile(escaped)
 }
 
-func (s *ServerACLs) OnServerACLUpdate(state *gomatrixserverlib.Event) {
+func (s *ServerACLs) OnServerACLUpdate(state gomatrixserverlib.PDU) {
 	acls := &serverACL{}
 	if err := json.Unmarshal(state.Content(), &acls.ServerACL); err != nil {
 		logrus.WithError(err).Errorf("Failed to unmarshal state content for server ACLs")
@@ -117,10 +121,10 @@ func (s *ServerACLs) OnServerACLUpdate(state *gomatrixserverlib.Event) {
 	}).Debugf("Updating server ACLs for %q", state.RoomID())
 	s.aclsMutex.Lock()
 	defer s.aclsMutex.Unlock()
-	s.acls[state.RoomID()] = acls
+	s.acls[state.RoomID().String()] = acls
 }
 
-func (s *ServerACLs) IsServerBannedFromRoom(serverName gomatrixserverlib.ServerName, roomID string) bool {
+func (s *ServerACLs) IsServerBannedFromRoom(serverName spec.ServerName, roomID string) bool {
 	s.aclsMutex.RLock()
 	// First of all check if we have an ACL for this room. If we don't then
 	// no servers are banned from the room.
@@ -133,7 +137,7 @@ func (s *ServerACLs) IsServerBannedFromRoom(serverName gomatrixserverlib.ServerN
 	// Split the host and port apart. This is because the spec calls on us to
 	// validate the hostname only in cases where the port is also present.
 	if serverNameOnly, _, err := net.SplitHostPort(string(serverName)); err == nil {
-		serverName = gomatrixserverlib.ServerName(serverNameOnly)
+		serverName = spec.ServerName(serverNameOnly)
 	}
 	// Check if the hostname is an IPv4 or IPv6 literal. We cheat here by adding
 	// a /0 prefix length just to trick ParseCIDR into working. If we find that

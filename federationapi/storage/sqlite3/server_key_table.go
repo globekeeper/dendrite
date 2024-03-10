@@ -22,6 +22,7 @@ import (
 
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 const serverSigningKeysSchema = `
@@ -82,7 +83,7 @@ func NewSQLiteServerSigningKeysTable(db *sql.DB) (s *serverSigningKeyStatements,
 
 func (s *serverSigningKeyStatements) BulkSelectServerKeys(
 	ctx context.Context, txn *sql.Tx,
-	requests map[gomatrixserverlib.PublicKeyLookupRequest]gomatrixserverlib.Timestamp,
+	requests map[gomatrixserverlib.PublicKeyLookupRequest]spec.Timestamp,
 ) (map[gomatrixserverlib.PublicKeyLookupRequest]gomatrixserverlib.PublicKeyLookupResult, error) {
 	nameAndKeyIDs := make([]string, 0, len(requests))
 	for request := range requests {
@@ -97,28 +98,28 @@ func (s *serverSigningKeyStatements) BulkSelectServerKeys(
 	err := sqlutil.RunLimitedVariablesQuery(
 		ctx, bulkSelectServerSigningKeysSQL, s.db, iKeyIDs, sqlutil.SQLite3MaxVariables,
 		func(rows *sql.Rows) error {
+			var serverName string
+			var keyID string
+			var key string
+			var validUntilTS int64
+			var expiredTS int64
+			var vk gomatrixserverlib.VerifyKey
 			for rows.Next() {
-				var serverName string
-				var keyID string
-				var key string
-				var validUntilTS int64
-				var expiredTS int64
 				if err := rows.Scan(&serverName, &keyID, &validUntilTS, &expiredTS, &key); err != nil {
 					return fmt.Errorf("bulkSelectServerKeys: %v", err)
 				}
 				r := gomatrixserverlib.PublicKeyLookupRequest{
-					ServerName: gomatrixserverlib.ServerName(serverName),
+					ServerName: spec.ServerName(serverName),
 					KeyID:      gomatrixserverlib.KeyID(keyID),
 				}
-				vk := gomatrixserverlib.VerifyKey{}
 				err := vk.Key.Decode(key)
 				if err != nil {
 					return fmt.Errorf("bulkSelectServerKeys: %v", err)
 				}
 				results[r] = gomatrixserverlib.PublicKeyLookupResult{
 					VerifyKey:    vk,
-					ValidUntilTS: gomatrixserverlib.Timestamp(validUntilTS),
-					ExpiredTS:    gomatrixserverlib.Timestamp(expiredTS),
+					ValidUntilTS: spec.Timestamp(validUntilTS),
+					ExpiredTS:    spec.Timestamp(expiredTS),
 				}
 			}
 			return nil

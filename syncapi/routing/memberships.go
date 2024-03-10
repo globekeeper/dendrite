@@ -15,16 +15,16 @@
 package routing
 
 import (
-	"encoding/json"
 	"math"
 	"net/http"
 
-	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	"github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/syncapi/storage"
 	"github.com/matrix-org/dendrite/syncapi/synctypes"
 	"github.com/matrix-org/dendrite/syncapi/types"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
+	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 )
 
@@ -32,60 +32,48 @@ type getMembershipResponse struct {
 	Chunk []synctypes.ClientEvent `json:"chunk"`
 }
 
-// https://matrix.org/docs/spec/client_server/r0.6.0#get-matrix-client-r0-rooms-roomid-joined-members
-type getJoinedMembersResponse struct {
-	Joined map[string]joinedMember `json:"joined"`
-}
-
-type joinedMember struct {
-	DisplayName string `json:"display_name"`
-	AvatarURL   string `json:"avatar_url"`
-}
-
-// The database stores 'displayname' without an underscore.
-// Deserialize into this and then change to the actual API response
-type databaseJoinedMember struct {
-	DisplayName string `json:"displayname"`
-	AvatarURL   string `json:"avatar_url"`
-}
-
 // GetMemberships implements
 //
 //	GET /rooms/{roomId}/members
-//	GET /rooms/{roomId}/joined_members
 func GetMemberships(
 	req *http.Request, device *userapi.Device, roomID string,
 	syncDB storage.Database, rsAPI api.SyncRoomserverAPI,
-	joinedOnly bool, membership, notMembership *string, at string,
+	membership, notMembership *string, at string,
 ) util.JSONResponse {
+	userID, err := spec.NewUserID(device.UserID, true)
+	if err != nil {
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.InvalidParam("Device UserID is invalid"),
+		}
+	}
 	queryReq := api.QueryMembershipForUserRequest{
 		RoomID: roomID,
-		UserID: device.UserID,
+		UserID: *userID,
 	}
 
 	var queryRes api.QueryMembershipForUserResponse
-	if err := rsAPI.QueryMembershipForUser(req.Context(), &queryReq, &queryRes); err != nil {
-		util.GetLogger(req.Context()).WithError(err).Error("rsAPI.QueryMembershipsForRoom failed")
-		return jsonerror.InternalServerError()
+	if queryErr := rsAPI.QueryMembershipForUser(req.Context(), &queryReq, &queryRes); queryErr != nil {
+		util.GetLogger(req.Context()).WithError(queryErr).Error("rsAPI.QueryMembershipsForRoom failed")
+		return util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.InternalServerError{},
+		}
 	}
 
 	if !queryRes.HasBeenInRoom {
 		return util.JSONResponse{
 			Code: http.StatusForbidden,
-			JSON: jsonerror.Forbidden("You aren't a member of the room and weren't previously a member of the room."),
-		}
-	}
-
-	if joinedOnly && !queryRes.IsInRoom {
-		return util.JSONResponse{
-			Code: http.StatusForbidden,
-			JSON: jsonerror.Forbidden("You aren't a member of the room and weren't previously a member of the room."),
+			JSON: spec.Forbidden("You aren't a member of the room and weren't previously a member of the room."),
 		}
 	}
 
 	db, err := syncDB.NewDatabaseSnapshot(req.Context())
 	if err != nil {
-		return jsonerror.InternalServerError()
+		return util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.InternalServerError{},
+		}
 	}
 	defer db.Rollback() // nolint: errcheck
 
@@ -97,7 +85,10 @@ func GetMemberships(
 			atToken, err = db.EventPositionInTopology(req.Context(), queryRes.EventID)
 			if err != nil {
 				util.GetLogger(req.Context()).WithError(err).Error("unable to get 'atToken'")
-				return jsonerror.InternalServerError()
+				return util.JSONResponse{
+					Code: http.StatusInternalServerError,
+					JSON: spec.InternalServerError{},
+				}
 			}
 		}
 	}
@@ -105,35 +96,27 @@ func GetMemberships(
 	eventIDs, err := db.SelectMemberships(req.Context(), roomID, atToken, membership, notMembership)
 	if err != nil {
 		util.GetLogger(req.Context()).WithError(err).Error("db.SelectMemberships failed")
-		return jsonerror.InternalServerError()
+		return util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.InternalServerError{},
+		}
 	}
 
 	qryRes := &api.QueryEventsByIDResponse{}
 	if err := rsAPI.QueryEventsByID(req.Context(), &api.QueryEventsByIDRequest{EventIDs: eventIDs, RoomID: roomID}, qryRes); err != nil {
 		util.GetLogger(req.Context()).WithError(err).Error("rsAPI.QueryEventsByID failed")
-		return jsonerror.InternalServerError()
+		return util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.InternalServerError{},
+		}
 	}
 
 	result := qryRes.Events
 
-	if joinedOnly {
-		var res getJoinedMembersResponse
-		res.Joined = make(map[string]joinedMember)
-		for _, ev := range result {
-			var content databaseJoinedMember
-			if err := json.Unmarshal(ev.Content(), &content); err != nil {
-				util.GetLogger(req.Context()).WithError(err).Error("failed to unmarshal event content")
-				return jsonerror.InternalServerError()
-			}
-			res.Joined[ev.Sender()] = joinedMember(content)
-		}
-		return util.JSONResponse{
-			Code: http.StatusOK,
-			JSON: res,
-		}
-	}
 	return util.JSONResponse{
 		Code: http.StatusOK,
-		JSON: getMembershipResponse{synctypes.HeaderedToClientEvents(result, synctypes.FormatAll)},
+		JSON: getMembershipResponse{synctypes.ToClientEvents(gomatrixserverlib.ToPDUs(result), synctypes.FormatAll, func(roomID spec.RoomID, senderID spec.SenderID) (*spec.UserID, error) {
+			return rsAPI.QueryUserIDForSender(req.Context(), roomID, senderID)
+		})},
 	}
 }

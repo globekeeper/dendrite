@@ -25,8 +25,8 @@ import (
 	"github.com/matrix-org/dendrite/mediaapi/types"
 	"github.com/matrix-org/dendrite/setup/config"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
-	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/fclient"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -123,6 +123,7 @@ func makeDownloadAPI(
 
 		// Set internal headers returned regardless of the outcome of the request
 		util.SetCORSHeaders(w)
+		w.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
 		// Content-Type will be overridden in case of returning file data, else we respond with JSON-formatted errors
 		w.Header().Set("Content-Type", "application/json")
 
@@ -140,7 +141,7 @@ func makeDownloadAPI(
 		}
 
 		vars, _ := httputil.URLDecodeMapValues(mux.Vars(req))
-		serverName := gomatrixserverlib.ServerName(vars["serverName"])
+		serverName := spec.ServerName(vars["serverName"])
 
 		// For the purposes of loop avoidance, we will return a 404 if allow_remote is set to
 		// false in the query string and the target server name isn't our own.

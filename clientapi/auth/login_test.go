@@ -17,16 +17,18 @@ package auth
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
-	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	"github.com/matrix-org/dendrite/clientapi/ratelimit"
 	"github.com/matrix-org/dendrite/clientapi/userutil"
 	"github.com/matrix-org/dendrite/setup/config"
 	uapi "github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/gomatrixserverlib/fclient"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 )
 
@@ -34,8 +36,9 @@ func TestLoginFromJSONReader(t *testing.T) {
 	ctx := context.Background()
 
 	tsts := []struct {
-		Name string
-		Body string
+		Name  string
+		Body  string
+		Token string
 
 		WantUsername      string
 		WantDeviceID      string
@@ -63,6 +66,30 @@ func TestLoginFromJSONReader(t *testing.T) {
 			WantDeviceID:      "adevice",
 			WantDeletedTokens: []string{"atoken"},
 		},
+		{
+			Name: "appServiceWorksUserID",
+			Body: `{
+				"type": "m.login.application_service",
+				"identifier": { "type": "m.id.user", "user": "@alice:example.com" },
+				"device_id": "adevice"
+			}`,
+			Token: "astoken",
+
+			WantUsername: "@alice:example.com",
+			WantDeviceID: "adevice",
+		},
+		{
+			Name: "appServiceWorksLocalpart",
+			Body: `{
+				"type": "m.login.application_service",
+				"identifier": { "type": "m.id.user", "user": "alice" },
+				"device_id": "adevice"
+			}`,
+			Token: "astoken",
+
+			WantUsername: "alice",
+			WantDeviceID: "adevice",
+		},
 	}
 	for _, tst := range tsts {
 		t.Run(tst.Name, func(t *testing.T) {
@@ -73,14 +100,38 @@ func TestLoginFromJSONReader(t *testing.T) {
 						ServerName: serverName,
 					},
 				},
+				Derived: &config.Derived{
+					ApplicationServices: []config.ApplicationService{
+						{
+							ID:      "anapplicationservice",
+							ASToken: "astoken",
+							NamespaceMap: map[string][]config.ApplicationServiceNamespace{
+								"users": {
+									{
+										Exclusive:    true,
+										Regex:        "@alice:example.com",
+										RegexpObject: regexp.MustCompile("@alice:example.com"),
+									},
+								},
+							},
+						},
+					},
+				},
 				RtFailedLogin: ratelimit.RtFailedLoginConfig{
 					Enabled: false,
 				},
 			}
-			login, cleanup, err := LoginFromJSONReader(ctx, strings.NewReader(tst.Body), &userAPI, cfg, nil)
-			if err != nil {
-				t.Fatalf("LoginFromJSONReader failed: %+v", err)
+
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tst.Body))
+			if tst.Token != "" {
+				req.Header.Add("Authorization", "Bearer "+tst.Token)
 			}
+
+			login, cleanup, jsonErr := LoginFromJSONReader(req, &userAPI, &userAPI, cfg, nil)
+			if jsonErr != nil {
+				t.Fatalf("LoginFromJSONReader failed: %+v", jsonErr)
+			}
+
 			cleanup(ctx, &util.JSONResponse{Code: http.StatusOK})
 
 			if login.Username() != tst.WantUsername {
@@ -108,16 +159,17 @@ func TestBadLoginFromJSONReader(t *testing.T) {
 	ctx := context.Background()
 
 	tsts := []struct {
-		Name string
-		Body string
+		Name  string
+		Body  string
+		Token string
 
-		WantErrCode string
+		WantErrCode spec.MatrixErrorCode
 	}{
-		{Name: "empty", WantErrCode: "M_BAD_JSON"},
+		{Name: "empty", WantErrCode: spec.ErrorBadJSON},
 		{
 			Name:        "badUnmarshal",
 			Body:        `badsyntaxJSON`,
-			WantErrCode: "M_BAD_JSON",
+			WantErrCode: spec.ErrorBadJSON,
 		},
 		{
 			Name: "badPassword",
@@ -127,7 +179,7 @@ func TestBadLoginFromJSONReader(t *testing.T) {
 				"password": "invalidpassword",
 				"device_id": "adevice"
             }`,
-			WantErrCode: "M_FORBIDDEN",
+			WantErrCode: spec.ErrorForbidden,
 		},
 		{
 			Name: "badToken",
@@ -136,7 +188,7 @@ func TestBadLoginFromJSONReader(t *testing.T) {
 				"token": "invalidtoken",
 				"device_id": "adevice"
             }`,
-			WantErrCode: "M_FORBIDDEN",
+			WantErrCode: spec.ErrorForbidden,
 		},
 		{
 			Name: "badType",
@@ -144,7 +196,46 @@ func TestBadLoginFromJSONReader(t *testing.T) {
 				"type": "m.login.invalid",
 				"device_id": "adevice"
             }`,
-			WantErrCode: "M_INVALID_ARGUMENT_VALUE",
+			WantErrCode: spec.ErrorInvalidParam,
+		},
+		{
+			Name: "noASToken",
+			Body: `{
+				"type": "m.login.application_service",
+				"identifier": { "type": "m.id.user", "user": "@alice:example.com" },
+				"device_id": "adevice"
+			}`,
+			WantErrCode: "M_MISSING_TOKEN",
+		},
+		{
+			Name:  "badASToken",
+			Token: "badastoken",
+			Body: `{
+				"type": "m.login.application_service",
+				"identifier": { "type": "m.id.user", "user": "@alice:example.com" },
+				"device_id": "adevice"
+			}`,
+			WantErrCode: "M_UNKNOWN_TOKEN",
+		},
+		{
+			Name:  "badASNamespace",
+			Token: "astoken",
+			Body: `{
+				"type": "m.login.application_service",
+				"identifier": { "type": "m.id.user", "user": "@bob:example.com" },
+				"device_id": "adevice"
+			}`,
+			WantErrCode: "M_EXCLUSIVE",
+		},
+		{
+			Name:  "badASUserID",
+			Token: "astoken",
+			Body: `{
+				"type": "m.login.application_service",
+				"identifier": { "type": "m.id.user", "user": "@alice:wrong.example.com" },
+				"device_id": "adevice"
+			}`,
+			WantErrCode: "M_INVALID_USERNAME",
 		},
 	}
 	for _, tst := range tsts {
@@ -156,12 +247,34 @@ func TestBadLoginFromJSONReader(t *testing.T) {
 						ServerName: serverName,
 					},
 				},
+				Derived: &config.Derived{
+					ApplicationServices: []config.ApplicationService{
+						{
+							ID:      "anapplicationservice",
+							ASToken: "astoken",
+							NamespaceMap: map[string][]config.ApplicationServiceNamespace{
+								"users": {
+									{
+										Exclusive:    true,
+										Regex:        "@alice:example.com",
+										RegexpObject: regexp.MustCompile("@alice:example.com"),
+									},
+								},
+							},
+						},
+					},
+				},
 			}
-			_, cleanup, errRes := LoginFromJSONReader(ctx, strings.NewReader(tst.Body), &userAPI, cfg, nil)
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tst.Body))
+			if tst.Token != "" {
+				req.Header.Add("Authorization", "Bearer "+tst.Token)
+			}
+
+			_, cleanup, errRes := LoginFromJSONReader(req, &userAPI, &userAPI, cfg, nil)
 			if errRes == nil {
 				cleanup(ctx, nil)
 				t.Fatalf("LoginFromJSONReader err: got %+v, want code %q", errRes, tst.WantErrCode)
-			} else if merr, ok := errRes.JSON.(*jsonerror.MatrixError); ok && merr.ErrCode != tst.WantErrCode {
+			} else if merr, ok := errRes.JSON.(spec.MatrixError); ok && merr.ErrCode != tst.WantErrCode {
 				t.Fatalf("LoginFromJSONReader err: got %+v, want code %q", errRes, tst.WantErrCode)
 			}
 		})
@@ -170,7 +283,6 @@ func TestBadLoginFromJSONReader(t *testing.T) {
 
 type fakeUserInternalAPI struct {
 	uapi.ClientUserAPI
-	UserInternalAPIForLogin
 	DeletedTokens []string
 }
 
