@@ -20,14 +20,14 @@ import (
 
 	"github.com/matrix-org/dendrite/syncapi/notifier"
 	"github.com/matrix-org/dendrite/syncapi/storage"
-	"github.com/matrix-org/dendrite/syncapi/storage/mrd"
+	"github.com/matrix-org/dendrite/syncapi/storage/connnect"
 	"github.com/matrix-org/dendrite/syncapi/types"
 )
 
 type MultiRoomDataStreamProvider struct {
 	DefaultStreamProvider
 	notifier *notifier.Notifier
-	mrdDb    *mrd.Queries
+	mrdDb    *connnect.Queries
 }
 
 func (p *MultiRoomDataStreamProvider) Setup(ctx context.Context, snapshot storage.DatabaseTransaction) {

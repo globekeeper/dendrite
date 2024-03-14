@@ -173,3 +173,53 @@ type PerformForgetRequest struct {
 }
 
 type PerformForgetResponse struct{}
+
+type PerformRoomUpgradeRequest struct {
+	RoomID      string                        `json:"room_id"`
+	UserID      string                        `json:"user_id"`
+	RoomVersion gomatrixserverlib.RoomVersion `json:"room_version"`
+}
+
+type PerformRoomUpgradeResponse struct {
+	Code    int         `json:"code,omitempty"`
+	Message interface{} `json:"message,omitempty"`
+}
+
+type PerformAdminEvacuateRoomRequest struct {
+	RoomID string `json:"room_id"`
+}
+
+type PerformAdminEvacuateRoomResponse struct {
+	Affected []string    `json:"affected"`
+	Code     int         `json:"code,omitempty"`
+	Message  interface{} `json:"message,omitempty"`
+}
+
+type PerformAdminEvacuateUserRequest struct {
+	UserID string `json:"user_id"`
+}
+
+type PerformAdminEvacuateUserResponse struct {
+	Affected []string    `json:"affected"`
+	Code     int         `json:"code,omitempty"`
+	Message  interface{} `json:"message,omitempty"`
+}
+
+type PerformAdminPurgeRoomRequest struct {
+	RoomID string `json:"room_id"`
+}
+
+type PerformAdminPurgeRoomResponse struct {
+	Code    int         `json:"code,omitempty"`
+	Message interface{} `json:"message,omitempty"`
+}
+
+type PerformDataRetentionRequest struct {
+	RoomID string `json:"room_id"`
+}
+
+type PerformDataRetentionResponse struct {
+	Affected []string    `json:"affected"`
+	Code     int         `json:"code,omitempty"`
+	Message  interface{} `json:"message,omitempty"`
+}

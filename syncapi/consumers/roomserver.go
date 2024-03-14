@@ -23,6 +23,8 @@ import (
 	"fmt"
 
 	"github.com/getsentry/sentry-go"
+	"github.com/go-co-op/gocron"
+
 	"github.com/matrix-org/dendrite/internal/fulltext"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/roomserver/api"
@@ -57,6 +59,7 @@ type OutputRoomEventConsumer struct {
 	notifier     *notifier.Notifier
 	fts          fulltext.Indexer
 	asProducer   *producers.AppserviceEventProducer
+	DrScheduler  *gocron.Scheduler
 }
 
 // NewOutputRoomEventConsumer creates a new OutputRoomEventConsumer. Call Start() to begin consuming from room servers.
@@ -71,6 +74,7 @@ func NewOutputRoomEventConsumer(
 	rsAPI api.SyncRoomserverAPI,
 	fts *fulltext.Search,
 	asProducer *producers.AppserviceEventProducer,
+	scheduler *gocron.Scheduler,
 ) *OutputRoomEventConsumer {
 	return &OutputRoomEventConsumer{
 		ctx:          process.Context(),
@@ -85,6 +89,7 @@ func NewOutputRoomEventConsumer(
 		rsAPI:        rsAPI,
 		fts:          fts,
 		asProducer:   asProducer,
+		DrScheduler:  scheduler,
 	}
 }
 
@@ -145,6 +150,13 @@ func (s *OutputRoomEventConsumer) onMessage(ctx context.Context, msgs []*nats.Ms
 		if err != nil {
 			logrus.WithField("room_id", output.PurgeRoom.RoomID).WithError(err).Error("Failed to purge room from sync API")
 			return true // non-fatal, as otherwise we end up in a loop of trying to purge the room
+		}
+	// After performing data-retention in roomserver database, trigger data retention in syncapi.
+	case api.OutputTypeRoomDataRetention:
+		err = s.onDataRetention(*output.RoomDataRetention)
+		if err != nil {
+			logrus.WithField("room_id", output.RoomDataRetention.RoomID).WithError(err).Error("Failed to perform room data retention in sync API")
+			return true // non-fatal, as otherwise we end up in a loop of trying to perform data retention in the room
 		}
 	default:
 		log.WithField("type", output.Type).Debug(
@@ -277,8 +289,19 @@ func (s *OutputRoomEventConsumer) onNewRoomEvent(
 	}
 
 	ev.UserID = *userID
+	pduPos, err := s.db.WriteEvent(
+		ctx,
+		ev,
+		addsStateEvents,
+		msg.AddsStateEventIDs,
+		msg.RemovesStateEventIDs,
+		msg.TransactionID,
+		false,
+		msg.HistoryVisibility,
+		s.rsAPI,
+		s.DrScheduler,
+	)
 
-	pduPos, err := s.db.WriteEvent(ctx, ev, addsStateEvents, msg.AddsStateEventIDs, msg.RemovesStateEventIDs, msg.TransactionID, false, msg.HistoryVisibility)
 	if err != nil {
 		// panic rather than continue with an inconsistent database
 		log.WithFields(log.Fields{
@@ -327,14 +350,23 @@ func (s *OutputRoomEventConsumer) onOldRoomEvent(
 	// hack but until we have some better strategy for dealing with
 	// old events in the sync API, this should at least prevent us
 	// from confusing clients into thinking they've joined/left rooms.
-
 	userID, err := s.rsAPI.QueryUserIDForSender(ctx, ev.RoomID(), ev.SenderID())
 	if err != nil {
 		return err
 	}
 	ev.UserID = *userID
-
-	pduPos, err := s.db.WriteEvent(ctx, ev, []*rstypes.HeaderedEvent{}, []string{}, []string{}, nil, ev.StateKey() != nil, msg.HistoryVisibility)
+	pduPos, err := s.db.WriteEvent(
+		ctx,
+		ev,
+		[]*rstypes.HeaderedEvent{},
+		[]string{},           // adds no state
+		[]string{},           // removes no state
+		nil,                  // no transaction
+		ev.StateKey() != nil, // exclude from sync?,
+		msg.HistoryVisibility,
+		nil,
+		nil,
+	)
 	if err != nil {
 		// panic rather than continue with an inconsistent database
 		log.WithFields(log.Fields{
@@ -535,6 +567,23 @@ func (s *OutputRoomEventConsumer) onPurgeRoom(
 		logrus.WithField("room_id", req.RoomID).Warn("Room purged from sync API")
 		return nil
 	}
+}
+
+// nolint:unparam
+func (s *OutputRoomEventConsumer) onDataRetention(
+	req api.OutputDataRetention,
+) error {
+	logrus.WithField("room_id", req.RoomID).Warn("Data retention from sync API")
+
+	// TODO: Perform data retention in syncapi database.
+	// if err := s.db.PerformDataRetention(req.RoomID); err != nil {
+	// 	logrus.WithField("room_id", req.RoomID).WithError(err).Error("Failed to perform data retention from sync API")
+	// 	return err
+	// } else {
+	// 	logrus.WithField("room_id", req.RoomID).Warn("Room data retention from sync API")
+	// 	return nil
+	// }
+	return nil
 }
 
 func (s *OutputRoomEventConsumer) updateStateEvent(event *rstypes.HeaderedEvent) (*rstypes.HeaderedEvent, error) {

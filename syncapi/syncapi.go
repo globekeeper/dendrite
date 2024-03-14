@@ -18,16 +18,17 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-co-op/gocron"
 	"github.com/matrix-org/dendrite/internal/fulltext"
 	"github.com/matrix-org/dendrite/internal/httputil"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
+	"github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/setup/process"
 	"github.com/sirupsen/logrus"
 
 	"github.com/matrix-org/dendrite/internal/caching"
 
-	"github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup/jetstream"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
 
@@ -36,6 +37,7 @@ import (
 	"github.com/matrix-org/dendrite/syncapi/producers"
 	"github.com/matrix-org/dendrite/syncapi/routing"
 	"github.com/matrix-org/dendrite/syncapi/storage"
+	"github.com/matrix-org/dendrite/syncapi/storage/connnect"
 	"github.com/matrix-org/dendrite/syncapi/streams"
 	"github.com/matrix-org/dendrite/syncapi/sync"
 	"github.com/matrix-org/dendrite/syncapi/types"
@@ -56,7 +58,7 @@ func AddPublicRoutes(
 ) {
 	js, natsClient := natsInstance.Prepare(processContext, &dendriteCfg.Global.JetStream)
 
-	syncDB, mrq, err := storage.NewSyncServerDatasource(processContext.Context(), cm, &dendriteCfg.SyncAPI.Database)
+	syncDB, connnectQ, err := storage.NewSyncServerDatasource(processContext.Context(), cm, &dendriteCfg.SyncAPI.Database)
 	if err != nil {
 		logrus.WithError(err).Panicf("failed to connect to sync db")
 	}
@@ -64,7 +66,7 @@ func AddPublicRoutes(
 	go func() {
 		var affected int64
 		for {
-			affected, err = mrq.DeleteMultiRoomVisibilityByExpireTS(context.Background(), time.Now().UnixMilli())
+			affected, err = connnectQ.DeleteMultiRoomVisibilityByExpireTS(context.Background(), time.Now().UnixMilli())
 			if err != nil {
 				logrus.WithError(err).Error("failed to expire multiroom visibility")
 			}
@@ -75,7 +77,7 @@ func AddPublicRoutes(
 
 	eduCache := caching.NewTypingCache()
 	notifier := notifier.NewNotifier(rsAPI)
-	streams := streams.NewSyncStreamProviders(syncDB, userAPI, rsAPI, eduCache, caches, notifier, mrq)
+	streams := streams.NewSyncStreamProviders(syncDB, userAPI, rsAPI, eduCache, caches, notifier, connnectQ)
 	notifier.SetCurrentPosition(streams.Latest(context.Background()))
 	if err = notifier.Load(context.Background(), syncDB); err != nil {
 		logrus.WithError(err).Panicf("failed to load notifier ")
@@ -121,9 +123,13 @@ func AddPublicRoutes(
 		}
 	}
 
+	scheduler := InitDataRetentionScheduler(processContext, rsAPI, connnectQ)
+	if scheduler == nil {
+		logrus.WithError(err).Panicf("failed to data retention scheduler")
+	}
 	roomConsumer := consumers.NewOutputRoomEventConsumer(
 		processContext, &dendriteCfg.SyncAPI, js, syncDB, notifier, streams.PDUStreamProvider,
-		streams.InviteStreamProvider, rsAPI, fts, asProducer,
+		streams.InviteStreamProvider, rsAPI, fts, asProducer, scheduler,
 	)
 	if err = roomConsumer.Start(); err != nil {
 		logrus.WithError(err).Panicf("failed to start room server consumer")
@@ -166,7 +172,7 @@ func AddPublicRoutes(
 	}
 
 	multiRoomConsumer := consumers.NewOutputMultiRoomDataConsumer(
-		processContext, &dendriteCfg.SyncAPI, js, mrq, notifier, streams.MultiRoomStreamProvider,
+		processContext, &dendriteCfg.SyncAPI, js, connnectQ, notifier, streams.MultiRoomStreamProvider,
 	)
 	if err = multiRoomConsumer.Start(); err != nil {
 		logrus.WithError(err).Panicf("failed to start multiroom consumer")
@@ -198,4 +204,28 @@ func AddPublicRoutes(
 			time.Sleep(types.PresenceExpireInterval)
 		}
 	}()
+}
+
+func InitDataRetentionScheduler(process *process.ProcessContext, rsAPI api.SyncRoomserverAPI, d *connnect.Queries) (scheduler *gocron.Scheduler) {
+	scheduler = gocron.NewScheduler(time.UTC)
+	drs, err := d.SelectDataRetentions(process.Context())
+	if err != nil {
+		logrus.WithError(err).Panicf("failed to select data retentions")
+	}
+	for _, dr := range drs {
+		logrus.WithField("space_id", dr.SpaceID).Info("adding data retention job")
+		job, err := scheduler.At(dr.At).Every(dr.Timeframe).Milliseconds().Do(func(SpaceID string) {
+			logrus.WithField("space_id", dr.SpaceID).Info("running data retention job")
+			res := &api.PerformDataRetentionResponse{}
+			if err := rsAPI.PerformDataRetention(process.Context(), &api.PerformDataRetentionRequest{RoomID: SpaceID}, res); err != nil {
+				logrus.WithError(err).Error("failed to delete room data")
+			}
+		}, dr.SpaceID)
+		if err != nil {
+			return nil
+		}
+		job.Tag("data_retention", dr.SpaceID)
+	}
+	scheduler.StartAsync()
+	return
 }

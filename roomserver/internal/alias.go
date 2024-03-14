@@ -197,7 +197,7 @@ func (r *RoomserverInternalAPI) RemoveRoomAlias(ctx context.Context, senderID sp
 
 			eventsNeeded, err := gomatrixserverlib.StateNeededForProtoEvent(proto)
 			if err != nil {
-				return true, false, fmt.Errorf("gomatrixserverlib.StateNeededForEventBuilder: %w", err)
+				return true, false, fmt.Errorf("gomatrixserverlib.StateNeededForProtoEvent: %w", err)
 			}
 			if len(eventsNeeded.Tuples()) == 0 {
 				return true, false, errors.New("expecting state tuples for event builder, got none")
