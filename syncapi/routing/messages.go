@@ -604,6 +604,8 @@ func (r *messagesReq) backfill(roomID string, backwardsExtremities map[string][]
 			[]string{},
 			nil, true,
 			events[i].Visibility,
+			nil,
+			nil,
 		)
 		if err != nil {
 			return nil, err

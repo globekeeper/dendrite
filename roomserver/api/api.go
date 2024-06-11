@@ -186,6 +186,14 @@ type SyncRoomserverAPI interface {
 		req *PerformBackfillRequest,
 		res *PerformBackfillResponse,
 	) error
+
+	// Perform a data retention run.
+	// Triggered by data retention jobs, configured by space admins.
+	PerformDataRetention(
+		ctx context.Context,
+		req *PerformDataRetentionRequest,
+		res *PerformDataRetentionResponse,
+	) error
 }
 
 type AppserviceRoomserverAPI interface {

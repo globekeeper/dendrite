@@ -26,7 +26,7 @@ import (
 	"github.com/matrix-org/dendrite/setup/jetstream"
 	"github.com/matrix-org/dendrite/setup/process"
 	"github.com/matrix-org/dendrite/syncapi/notifier"
-	"github.com/matrix-org/dendrite/syncapi/storage/mrd"
+	"github.com/matrix-org/dendrite/syncapi/storage/connnect"
 	"github.com/matrix-org/dendrite/syncapi/streams"
 	"github.com/matrix-org/dendrite/syncapi/types"
 )
@@ -37,7 +37,7 @@ type OutputMultiRoomDataConsumer struct {
 	jetstream nats.JetStreamContext
 	durable   string
 	topic     string
-	db        *mrd.Queries
+	db        *connnect.Queries
 	stream    streams.StreamProvider
 	notifier  *notifier.Notifier
 }
@@ -47,7 +47,7 @@ func NewOutputMultiRoomDataConsumer(
 	process *process.ProcessContext,
 	cfg *config.SyncAPI,
 	js nats.JetStreamContext,
-	q *mrd.Queries,
+	q *connnect.Queries,
 	notifier *notifier.Notifier,
 	stream streams.StreamProvider,
 ) *OutputMultiRoomDataConsumer {
@@ -79,7 +79,7 @@ func (s *OutputMultiRoomDataConsumer) onMessage(ctx context.Context, msgs []*nat
 		"user_id": userID,
 	}).Debug("Received multiroom data from client API server")
 
-	pos, err := s.db.InsertMultiRoomData(ctx, mrd.InsertMultiRoomDataParams{
+	pos, err := s.db.InsertMultiRoomData(ctx, connnect.InsertMultiRoomDataParams{
 		UserID: userID,
 		Type:   dataType,
 		Data:   msg.Data,
@@ -93,7 +93,7 @@ func (s *OutputMultiRoomDataConsumer) onMessage(ctx context.Context, msgs []*nat
 		return false
 	}
 
-	rooms, err := s.db.SelectMultiRoomVisibilityRooms(ctx, mrd.SelectMultiRoomVisibilityRoomsParams{
+	rooms, err := s.db.SelectMultiRoomVisibilityRooms(ctx, connnect.SelectMultiRoomVisibilityRoomsParams{
 		UserID:   userID,
 		ExpireTs: time.Now().UnixMilli(),
 	})
