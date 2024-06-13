@@ -62,7 +62,7 @@ jobs:
 
   # Run golangci-lint
   lint:
-    timeout-minutes: 5
+    timeout-minutes: 7
     name: Linting
     runs-on: ubuntu-latest
     steps:
