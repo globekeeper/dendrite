@@ -1547,6 +1547,12 @@ func Setup(
 		}),
 	).Methods(http.MethodPost, http.MethodOptions)
 
+	v3mux.Handle("/rooms/{roomID}/dataRetention",
+		httputil.MakeAuthAPI("data_retention", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			return PostDataRetention(req, cfg, device, userAPI)
+		}),
+	).Methods(http.MethodPost, http.MethodOptions)
+
 	synapseAdminRouter.Handle("/admin/v1/event_reports",
 		httputil.MakeAdminAPI("admin_report_events", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
 			from := parseUint64OrDefault(req.URL.Query().Get("from"), 0)
