@@ -293,8 +293,8 @@ func NewTopologyTokenFromString(tok string) (token TopologyToken, err error) {
 		if i > len(positions) {
 			break
 		}
-		var pos int
-		pos, err = strconv.Atoi(p)
+		var pos int64
+		pos, err = strconv.ParseInt(p, 10, 64)
 		if err != nil {
 			return
 		}
@@ -327,8 +327,8 @@ func NewStreamTokenFromString(tok string) (token StreamingToken, err error) {
 		if i >= len(positions) {
 			break
 		}
-		var pos int
-		pos, err = strconv.Atoi(p)
+		var pos int64
+		pos, err = strconv.ParseInt(p, 10, 64)
 		if err != nil {
 			logrus.WithField("token", tok).Info("invalid stream token: strconv")
 			err = ErrMalformedSyncToken
