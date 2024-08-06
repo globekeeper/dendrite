@@ -1,11 +1,13 @@
 package routing
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/matrix-org/dendrite/clientapi/httputil"
+	"github.com/matrix-org/dendrite/roomserver/api"
+	roomserverAPI "github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup/config"
-	"github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 )
@@ -29,8 +31,7 @@ type DataRetention struct {
 func PostDataRetention(
 	req *http.Request,
 	cfg *config.ClientAPI,
-	deviceAPI *api.Device,
-	userAPI api.ClientUserAPI,
+	rsAPI roomserverAPI.ClientRoomserverAPI,
 ) util.JSONResponse {
 	var body DataRetentionRequest
 	if reqErr := httputil.UnmarshalJSONRequest(req, &body); reqErr != nil {
@@ -44,74 +45,53 @@ func PostDataRetention(
 		}
 	}
 
-	// TODO: Fetch dms, operators and teams under the provided space.
-	// WITH room_ids AS (
-	// 	SELECT DISTINCT
-	// 		(REGEXP_MATCHES(event_json, '"room_id":"([^"]+)"'))[1]::text AS room_id
-	// 	FROM roomserver_event_json
-	// 	WHERE event_json LIKE '%"state_key":"$1"%'
-	// 	AND event_json LIKE '%"type":"m.space.parent"%'
-	// ),
-	// dm_rooms AS (
-	// 	SELECT
-	// 		ARRAY_AGG(DISTINCT r.room_id) AS dm_array
-	// 	FROM roomserver_event_json e
-	// 	CROSS JOIN LATERAL (
-	// 		SELECT (REGEXP_MATCHES(e.event_json, '"room_id":"([^"]+)"'))[1]::text AS room_id
-	// 	) AS r
-	// 	WHERE e.event_json LIKE '%"is_direct":true%'
-	// 	AND r.room_id = ANY (
-	// 		SELECT room_id FROM room_ids
-	// 	)
-	// ),
-	// operation_rooms AS (
-	// 	SELECT
-	// 		ARRAY_AGG(DISTINCT r.room_id) AS operation_array
-	// 	FROM roomserver_event_json e
-	// 	CROSS JOIN LATERAL (
-	// 		SELECT (REGEXP_MATCHES(e.event_json, '"room_id":"([^"]+)"'))[1]::text AS room_id
-	// 	) AS r
-	// 	WHERE e.event_json LIKE '%"type":"connect.operation"%'
-	// 	AND r.room_id = ANY (
-	// 		SELECT room_id FROM room_ids
-	// 	)
-	// ),
-	// team_rooms AS (
-	// 	SELECT
-	// 		ARRAY_AGG(DISTINCT r.room_id) AS team_array
-	// 	FROM roomserver_event_json e
-	// 	CROSS JOIN LATERAL (
-	// 		SELECT (REGEXP_MATCHES(e.event_json, '"room_id":"([^"]+)"'))[1]::text AS room_id
-	// 	) AS r
-	// 	WHERE r.room_id = ANY (
-	// 		SELECT room_id FROM room_ids
-	// 	)
-	// 	AND r.room_id NOT IN (
-	// 		SELECT UNNEST(operation_rooms.operation_array) FROM operation_rooms
-	// 	)
-	// 	AND r.room_id NOT IN (
-	// 		SELECT UNNEST(dm_rooms.dm_array) FROM dm_rooms
-	// 	)
-	// )
-	// SELECT
-	// 	dm_rooms.dm_array,
-	// 	operation_rooms.operation_array,
-	// 	team_rooms.team_array
-	// FROM
-	// 	dm_rooms,
-	// 	operation_rooms,
-	// 	team_rooms;
+	// Validate the roomID
+	validRoomID, err := spec.NewRoomID(body.DataRetentions.SpaceID)
+	if err != nil {
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.InvalidParam("space_id is invalid"),
+		}
+	}
+
+	queryReq := api.QueryRoomsUnderSpaceRequest{
+		SpaceID: validRoomID.String(),
+	}
+
+	var queryRes api.QueryRoomsUnderSpaceResponse
+	if queryErr := rsAPI.QueryRoomsUnderSpace(req.Context(), &queryReq, &queryRes); queryErr != nil {
+		util.GetLogger(req.Context()).WithError(queryErr).Error("rsAPI.QueryRoomsUnderSpace failed")
+		return util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.InternalServerError{},
+		}
+	}
 
 	if body.DataRetentions.Teams {
-		// TODO: Iterate and purge stale data from teams
+		// TODO: Replace with PerformDataRetention once it's implemented
+		for _, roomId := range queryRes.Teams {
+			if err = rsAPI.PerformAdminPurgeRoom(context.Background(), roomId); err != nil {
+				return util.ErrorResponse(err)
+			}
+		}
 	}
 
 	if body.DataRetentions.Operations {
-		// TODO: Iterate and purge stale data from operations
+		for _, roomId := range queryRes.Operations {
+			// TODO: Replace with PerformDataRetention once it's implemented
+			if err = rsAPI.PerformAdminPurgeRoom(context.Background(), roomId); err != nil {
+				return util.ErrorResponse(err)
+			}
+		}
 	}
 
 	if body.DataRetentions.Dms {
-		// TODO: Iterate and purge stale data from dms
+		for _, roomId := range queryRes.DMs {
+			// TODO: Replace with PerformDataRetention once it's implemented
+			if err = rsAPI.PerformAdminPurgeRoom(context.Background(), roomId); err != nil {
+				return util.ErrorResponse(err)
+			}
+		}
 	}
 
 	return util.JSONResponse{

@@ -46,10 +46,69 @@ const bulkSelectEventJSONSQL = `
 	  ORDER BY event_nid ASC
 `
 
+const selectRoomsUnderSpaceSQL = "" +
+	"WITH room_ids AS (" +
+	"	SELECT DISTINCT" +
+	"		(REGEXP_MATCHES(event_json, '\"room_id\":\"([^\"]+)\"'))[1]::text AS room_id" +
+	"	FROM roomserver_event_json" +
+	"	WHERE event_json LIKE '%\"state_key\":\"$1\"%'" +
+	"	AND event_json LIKE '%\"type\":\"m.space.parent\"%'" +
+	")," +
+	"dm_rooms AS (" +
+	"	SELECT" +
+	"		ARRAY_AGG(DISTINCT r.room_id) AS dm_array" +
+	"	FROM roomserver_event_json e" +
+	"	CROSS JOIN LATERAL (" +
+	"		SELECT (REGEXP_MATCHES(e.event_json, '\"room_id\":\"([^\"]+)\"'))[1]::text AS room_id" +
+	"	) AS r" +
+	"	WHERE e.event_json LIKE '%\"is_direct\":true%'" +
+	"	AND r.room_id = ANY (" +
+	"		SELECT room_id FROM room_ids" +
+	"	)" +
+	")," +
+	"operation_rooms AS (" +
+	"	SELECT" +
+	"		ARRAY_AGG(DISTINCT r.room_id) AS operation_array" +
+	"	FROM roomserver_event_json e" +
+	"	CROSS JOIN LATERAL (" +
+	"		SELECT (REGEXP_MATCHES(e.event_json, '\"room_id\":\"([^\"]+)\"'))[1]::text AS room_id" +
+	"	) AS r" +
+	"	WHERE e.event_json LIKE '%\"type\":\"connect.operation\"%'" +
+	"	AND r.room_id = ANY (" +
+	"		SELECT room_id FROM room_ids" +
+	"	)" +
+	")," +
+	"team_rooms AS (" +
+	"	SELECT" +
+	"		ARRAY_AGG(DISTINCT r.room_id) AS team_array" +
+	"	FROM roomserver_event_json e" +
+	"	CROSS JOIN LATERAL (" +
+	"		SELECT (REGEXP_MATCHES(e.event_json, '\"room_id\":\"([^\"]+)\"'))[1]::text AS room_id" +
+	"	) AS r" +
+	"	WHERE r.room_id = ANY (" +
+	"		SELECT room_id FROM room_ids" +
+	"	)" +
+	"	AND r.room_id NOT IN (" +
+	"		SELECT UNNEST(operation_rooms.operation_array) FROM operation_rooms" +
+	"	)" +
+	"	AND r.room_id NOT IN (" +
+	"		SELECT UNNEST(dm_rooms.dm_array) FROM dm_rooms" +
+	"	)" +
+	")" +
+	"SELECT" +
+	"	dm_rooms.dm_array," +
+	"	operation_rooms.operation_array," +
+	"	team_rooms.team_array" +
+	"FROM" +
+	"	dm_rooms," +
+	"	operation_rooms," +
+	"	team_rooms;"
+
 type eventJSONStatements struct {
-	db                      *sql.DB
-	insertEventJSONStmt     *sql.Stmt
-	bulkSelectEventJSONStmt *sql.Stmt
+	db                           *sql.DB
+	insertEventJSONStmt          *sql.Stmt
+	bulkSelectEventJSONStmt      *sql.Stmt
+	selectRoomsUnderSpaceSQLStmt *sql.Stmt
 }
 
 func CreateEventJSONTable(db *sql.DB) error {
@@ -65,6 +124,7 @@ func PrepareEventJSONTable(db *sql.DB) (tables.EventJSON, error) {
 	return s, sqlutil.StatementList{
 		{&s.insertEventJSONStmt, insertEventJSONSQL},
 		{&s.bulkSelectEventJSONStmt, bulkSelectEventJSONSQL},
+		{&s.selectRoomsUnderSpaceSQLStmt, selectRoomsUnderSpaceSQL},
 	}.Prepare(db)
 }
 
@@ -110,4 +170,31 @@ func (s *eventJSONStatements) BulkSelectEventJSON(
 		result.EventNID = types.EventNID(eventNID)
 	}
 	return results[:i], rows.Err()
+}
+
+func (s *eventJSONStatements) SelectRoomsUnderSpace(
+	ctx context.Context, txn *sql.Tx, spaceID string,
+) ([]string, []string, []string, error) {
+	stmt := sqlutil.TxStmt(txn, s.selectRoomsUnderSpaceSQLStmt)
+	rows, err := stmt.QueryContext(ctx, spaceID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer internal.CloseAndLogIfError(ctx, rows, "SelectRoomsUnderSpaceSQL: rows.close() failed")
+
+	var (
+		Dms        []string
+		Operations []string
+		Teams      []string
+	)
+
+	if err := rows.Scan(&Dms, &Operations, &Teams); err != nil {
+		return nil, nil, nil, err
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, nil, err
+	}
+
+	return Dms, Operations, Teams, nil
 }

@@ -346,6 +346,17 @@ type QueryServerBannedFromRoomResponse struct {
 	Banned bool `json:"banned"`
 }
 
+// ! GlobeKeeper Customization
+type QueryRoomsUnderSpaceRequest struct {
+	SpaceID string `json:"space_id"`
+}
+
+type QueryRoomsUnderSpaceResponse struct {
+	DMs        []string `json:"dm_rooms"`
+	Operations []string `json:"operation_rooms"`
+	Teams      []string `json:"team_rooms"`
+}
+
 type QueryAdminEventReportsResponse struct {
 	ID               int64                  `json:"id"`
 	Score            int64                  `json:"score"`

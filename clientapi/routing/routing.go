@@ -1549,7 +1549,7 @@ func Setup(
 
 	v3mux.Handle("/rooms/{roomID}/dataRetention",
 		httputil.MakeAuthAPI("data_retention", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
-			return PostDataRetention(req, cfg, device, userAPI)
+			return PostDataRetention(req, cfg, rsAPI)
 		}),
 	).Methods(http.MethodPost, http.MethodOptions)
 

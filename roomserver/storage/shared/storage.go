@@ -522,6 +522,12 @@ func (d *Database) GetMembershipEventNIDsForRoom(
 	return d.getMembershipEventNIDsForRoom(ctx, nil, roomNID, joinOnly, localOnly)
 }
 
+func (d *Database) QueryRoomsUnderSpace(
+	ctx context.Context, spaceId string,
+) ([]string, []string, []string, error) {
+	return d.EventJSONTable.SelectRoomsUnderSpace(ctx, nil, spaceId)
+}
+
 func (d *Database) getMembershipEventNIDsForRoom(
 	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, joinOnly bool, localOnly bool,
 ) ([]types.EventNID, error) {
