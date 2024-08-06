@@ -215,6 +215,12 @@ type Purge interface {
 	) error
 }
 
+type DataRetention interface {
+	DataRetentionInRoom(
+		ctx context.Context, txn *sql.Tx, dr *api.PerformDataRetentionRequest, roomNID types.RoomNID, roomID string,
+	) error
+}
+
 type UserRoomKeys interface {
 	// InsertUserRoomPrivatePublicKey inserts the given private key as well as the public key for it. This should be used
 	// when creating keys locally.

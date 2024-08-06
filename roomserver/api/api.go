@@ -249,6 +249,8 @@ type ClientRoomserverAPI interface {
 	PerformAdminEvacuateRoom(ctx context.Context, roomID string) (affected []string, err error)
 	PerformAdminEvacuateUser(ctx context.Context, userID string) (affected []string, err error)
 	PerformAdminPurgeRoom(ctx context.Context, roomID string) error
+	//! GlobeKeeper Customization
+	PerformDataRetention(ctx context.Context, dr *PerformDataRetentionRequest, roomID string) error
 	PerformAdminDownloadState(ctx context.Context, roomID, userID string, serverName spec.ServerName) error
 	PerformPeek(ctx context.Context, req *PerformPeekRequest) (roomID string, err error)
 	PerformUnpeek(ctx context.Context, roomID, userID, deviceID string) error

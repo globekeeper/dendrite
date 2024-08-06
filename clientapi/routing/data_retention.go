@@ -10,19 +10,11 @@ import (
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
+	"github.com/sirupsen/logrus"
 )
 
 type DataRetentionRequest struct {
-	DataRetentions DataRetention `json:"data_retentions"`
-}
-
-type DataRetention struct {
-	SpaceID    string `json:"space_id"`
-	Enabled    bool   `json:"enabled"`
-	MaxAge     int32  `json:"max_age,required"`
-	Teams      bool   `json:"teams"`
-	Operations bool   `json:"operations"`
-	Dms        bool   `json:"dms"`
+	DataRetention api.PerformDataRetentionRequest `json:"data_retention"`
 }
 
 // Triggred by an application service job.
@@ -37,8 +29,9 @@ func PostDataRetention(
 	if reqErr := httputil.UnmarshalJSONRequest(req, &body); reqErr != nil {
 		return *reqErr
 	}
+	dr := body.DataRetention
 
-	if body.DataRetentions.MaxAge <= 0 || body.DataRetentions.SpaceID == "" {
+	if dr.MaxAge <= 0 || dr.SpaceID == "" {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
 			JSON: spec.BadJSON("missing max_age or space_id"),
@@ -46,7 +39,7 @@ func PostDataRetention(
 	}
 
 	// Validate the roomID
-	validRoomID, err := spec.NewRoomID(body.DataRetentions.SpaceID)
+	validRoomID, err := spec.NewRoomID(dr.SpaceID)
 	if err != nil {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
@@ -67,28 +60,37 @@ func PostDataRetention(
 		}
 	}
 
-	if body.DataRetentions.Teams {
-		// TODO: Replace with PerformDataRetention once it's implemented
+	if dr.Teams {
+		logrus.Infof("Performing data retention on teams in space %s", dr.SpaceID)
 		for _, roomId := range queryRes.Teams {
-			if err = rsAPI.PerformAdminPurgeRoom(context.Background(), roomId); err != nil {
+			if err = rsAPI.PerformDataRetention(context.Background(), &dr, roomId); err != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"space_id": dr.SpaceID,
+				}).Errorf("Failed to perform data retention on team with id %s", roomId)
 				return util.ErrorResponse(err)
 			}
 		}
 	}
 
-	if body.DataRetentions.Operations {
+	if dr.Operations {
+		logrus.Infof("Performing data retention on operations in space %s", dr.SpaceID)
 		for _, roomId := range queryRes.Operations {
-			// TODO: Replace with PerformDataRetention once it's implemented
-			if err = rsAPI.PerformAdminPurgeRoom(context.Background(), roomId); err != nil {
+			if err = rsAPI.PerformDataRetention(context.Background(), &dr, roomId); err != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"space_id": dr.SpaceID,
+				}).Errorf("Failed to perform data retention on operation with id %s", roomId)
 				return util.ErrorResponse(err)
 			}
 		}
 	}
 
-	if body.DataRetentions.Dms {
+	if dr.Dms {
+		logrus.Infof("Performing data retention on dms in space %s", dr.SpaceID)
 		for _, roomId := range queryRes.DMs {
-			// TODO: Replace with PerformDataRetention once it's implemented
-			if err = rsAPI.PerformAdminPurgeRoom(context.Background(), roomId); err != nil {
+			if err = rsAPI.PerformDataRetention(context.Background(), &dr, roomId); err != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"space_id": dr.SpaceID,
+				}).Errorf("Failed to perform data retention on dm with id %s", roomId)
 				return util.ErrorResponse(err)
 			}
 		}
