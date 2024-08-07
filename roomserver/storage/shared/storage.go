@@ -46,6 +46,7 @@ type Database struct {
 	MembershipTable    tables.Membership
 	PublishedTable     tables.Published
 	Purge              tables.Purge
+	DataRetention      tables.DataRetention
 	UserRoomKeyTable   tables.UserRoomKeys
 	GetRoomUpdaterFn   func(ctx context.Context, roomInfo *types.RoomInfo) (*RoomUpdater, error)
 }
@@ -520,6 +521,12 @@ func (d *Database) GetMembershipEventNIDsForRoom(
 	ctx context.Context, roomNID types.RoomNID, joinOnly bool, localOnly bool,
 ) ([]types.EventNID, error) {
 	return d.getMembershipEventNIDsForRoom(ctx, nil, roomNID, joinOnly, localOnly)
+}
+
+func (d *Database) QueryRoomsUnderSpace(
+	ctx context.Context, spaceId string,
+) ([]string, []string, []string, error) {
+	return d.EventJSONTable.SelectRoomsUnderSpace(ctx, nil, spaceId)
 }
 
 func (d *Database) getMembershipEventNIDsForRoom(
@@ -1677,6 +1684,22 @@ func (d *Database) PurgeRoom(ctx context.Context, roomID string) error {
 			return fmt.Errorf("failed to lock the room: %w", err)
 		}
 		return d.Purge.PurgeRoom(ctx, txn, roomNID, roomID)
+	})
+}
+
+// DataRetentionInRoom removes all stale encrypted chat messages within a given room from the roomserver.
+// For large rooms this operation may take a considerable amount of time.
+func (d *Database) DataRetentionInRoom(ctx context.Context, dr *api.PerformDataRetentionRequest, roomID string) error {
+	return d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
+		// Remove `ForUpdate` to execute without locking the records (might be needed since data retention is a long running operation)
+		roomNID, err := d.RoomsTable.SelectRoomNIDForUpdate(ctx, txn, roomID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return fmt.Errorf("room %s does not exist", roomID)
+			}
+			return fmt.Errorf("failed to lock the room: %w", err)
+		}
+		return d.DataRetention.DataRetentionInRoom(ctx, txn, dr, roomNID, roomID)
 	})
 }
 

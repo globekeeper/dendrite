@@ -171,3 +171,12 @@ type PerformForgetRequest struct {
 }
 
 type PerformForgetResponse struct{}
+
+type PerformDataRetentionRequest struct {
+	SpaceID    string `json:"space_id"`
+	Enabled    bool   `json:"enabled"`
+	MaxAge     int32  `json:"max_age"`
+	Teams      bool   `json:"teams"`
+	Operations bool   `json:"operations"`
+	Dms        bool   `json:"dms"`
+}

@@ -55,8 +55,9 @@ require (
 	modernc.org/sqlite v1.29.5
 )
 
+require github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
+
 require (
-	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/RoaringBitmap/roaring v1.2.3 // indirect

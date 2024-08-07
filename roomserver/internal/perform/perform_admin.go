@@ -222,6 +222,36 @@ func (r *Admin) PerformAdminPurgeRoom(
 	})
 }
 
+// PerformDataRetention removes all stale encrypted chat messages from the given room according to the data retention policy.
+func (r *Admin) PerformDataRetention(
+	ctx context.Context,
+	dr *api.PerformDataRetentionRequest,
+	roomID string,
+) error {
+	// Validate we actually got a room ID and nothing else
+	if _, _, err := gomatrixserverlib.SplitID('!', roomID); err != nil {
+		return err
+	}
+
+	logrus.WithField("room_id", roomID).Warn("Performing data retention on room from roomserver")
+	if err := r.DB.DataRetentionInRoom(ctx, dr, roomID); err != nil {
+		logrus.WithField("room_id", roomID).WithError(err).Warn("Failed to perform data retention on room from roomserver")
+		return err
+	}
+
+	logrus.WithField("room_id", roomID).Warn("Performed data retention on room from roomserver, informing other components")
+
+	return r.Inputer.OutputProducer.ProduceRoomEvents(roomID, []api.OutputEvent{
+		{
+			Type: api.OutputTypeDataRetention,
+			DataRetentionInRoom: &api.OutputDataRetention{
+				RoomID: roomID,
+				DR:     dr,
+			},
+		},
+	})
+}
+
 func (r *Admin) PerformAdminDownloadState(
 	ctx context.Context,
 	roomID, userID string, serverName spec.ServerName,

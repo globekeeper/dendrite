@@ -389,3 +389,10 @@ func (d *Database) PurgeRoom(ctx context.Context, roomID string) error {
 		return nil
 	})
 }
+
+func (d *Database) DataRetentionInRoom(ctx context.Context, roomID string) error {
+	return d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
+		// TODO: Implement this to support federation
+		return nil
+	})
+}

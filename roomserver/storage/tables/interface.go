@@ -25,6 +25,7 @@ type EventJSON interface {
 	// Insert the event JSON. On conflict, replace the event JSON with the new value (for redactions).
 	InsertEventJSON(ctx context.Context, tx *sql.Tx, eventNID types.EventNID, eventJSON []byte) error
 	BulkSelectEventJSON(ctx context.Context, tx *sql.Tx, eventNIDs []types.EventNID) ([]EventJSONPair, error)
+	SelectRoomsUnderSpace(ctx context.Context, txn *sql.Tx, spaceID string) ([]string, []string, []string, error)
 }
 
 type EventTypes interface {
@@ -211,6 +212,12 @@ type Redactions interface {
 type Purge interface {
 	PurgeRoom(
 		ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, roomID string,
+	) error
+}
+
+type DataRetention interface {
+	DataRetentionInRoom(
+		ctx context.Context, txn *sql.Tx, dr *api.PerformDataRetentionRequest, roomNID types.RoomNID, roomID string,
 	) error
 }
 

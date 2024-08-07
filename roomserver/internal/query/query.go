@@ -493,6 +493,21 @@ func (r *Queryer) QueryMembershipsForRoom(
 	return nil
 }
 
+// QueryRoomsUnderSpace implements api.RoomserverInternalAPI
+func (r *Queryer) QueryRoomsUnderSpace(
+	ctx context.Context,
+	request *api.QueryRoomsUnderSpaceRequest,
+	response *api.QueryRoomsUnderSpaceResponse,
+) error {
+	var err error
+	response.DMs, response.Operations, response.Teams, err = r.DB.QueryRoomsUnderSpace(ctx, request.SpaceID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // QueryServerJoinedToRoom implements api.RoomserverInternalAPI
 func (r *Queryer) QueryServerJoinedToRoom(
 	ctx context.Context,

@@ -140,6 +140,9 @@ type Database interface {
 	// joinOnly is set to true.
 	// Returns an error if there was a problem talking to the database.
 	GetMembershipEventNIDsForRoom(ctx context.Context, roomNID types.RoomNID, joinOnly bool, localOnly bool) ([]types.EventNID, error)
+	//! GlobeKeeper Customization
+	// QueryRoomsUnderSpace looks up rooms under the given space and returns all of them sorted by their type (DMs, operations and teams).
+	QueryRoomsUnderSpace(ctx context.Context, spaceID string) (dms, operations, teams []string, err error)
 	// EventsFromIDs looks up the Events for a list of event IDs. Does not error if event was
 	// not found.
 	// Returns an error if the retrieval went wrong.
@@ -177,6 +180,8 @@ type Database interface {
 	GetHistoryVisibilityState(ctx context.Context, roomInfo *types.RoomInfo, eventID string, domain string) ([]gomatrixserverlib.PDU, error)
 	GetLeftUsers(ctx context.Context, userIDs []string) ([]string, error)
 	PurgeRoom(ctx context.Context, roomID string) error
+	//! GlobeKeeper Customization
+	DataRetentionInRoom(ctx context.Context, dr *api.PerformDataRetentionRequest, roomID string) error
 	UpgradeRoom(ctx context.Context, oldRoomID, newRoomID, eventSender string) error
 
 	// GetMembershipForHistoryVisibility queries the membership events for the given eventIDs.
