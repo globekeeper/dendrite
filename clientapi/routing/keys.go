@@ -93,6 +93,7 @@ func UploadKeys(req *http.Request, keyAPI api.ClientKeyAPI, device *api.Device) 
 
 type queryKeysRequest struct {
 	Timeout    int                 `json:"timeout"`
+	Token      string              `json:"token"`
 	DeviceKeys map[string][]string `json:"device_keys"`
 }
 
@@ -118,6 +119,7 @@ func QueryKeys(req *http.Request, keyAPI api.ClientKeyAPI, device *api.Device) u
 		UserID:        device.UserID,
 		UserToDevices: r.DeviceKeys,
 		Timeout:       r.GetTimeout(),
+		// TODO: Token?
 	}, &queryRes)
 	return util.JSONResponse{
 		Code: 200,

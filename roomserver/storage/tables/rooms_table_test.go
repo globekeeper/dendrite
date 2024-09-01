@@ -74,6 +74,11 @@ func TestRoomsTable(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Nil(t, roomInfo)
 
+		// There are no rooms with latestEventNIDs yet
+		roomIDs, err := tab.SelectRoomIDsWithEvents(ctx, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(roomIDs))
+
 		roomVersions, err := tab.SelectRoomVersionsForRoomNIDs(ctx, nil, []types.RoomNID{wantRoomNID, 1337})
 		assert.NoError(t, err)
 		assert.Equal(t, roomVersions[wantRoomNID], room.Version)
@@ -81,7 +86,7 @@ func TestRoomsTable(t *testing.T) {
 		_, ok := roomVersions[1337]
 		assert.False(t, ok)
 
-		roomIDs, err := tab.BulkSelectRoomIDs(ctx, nil, []types.RoomNID{wantRoomNID, 1337})
+		roomIDs, err = tab.BulkSelectRoomIDs(ctx, nil, []types.RoomNID{wantRoomNID, 1337})
 		assert.NoError(t, err)
 		assert.Equal(t, []string{room.ID}, roomIDs)
 

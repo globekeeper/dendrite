@@ -16,7 +16,7 @@ const (
 )
 
 func TestBackoff(t *testing.T) {
-	stats := NewStatistics(nil, FailuresUntilBlacklist, FailuresUntilAssumedOffline, false)
+	stats := NewStatistics(nil, FailuresUntilBlacklist, FailuresUntilAssumedOffline)
 	server := ServerStatistics{
 		statistics: &stats,
 		serverName: "test.com",
@@ -106,7 +106,7 @@ func TestBackoff(t *testing.T) {
 }
 
 func TestRelayServersListing(t *testing.T) {
-	stats := NewStatistics(test.NewInMemoryFederationDatabase(), FailuresUntilBlacklist, FailuresUntilAssumedOffline, false)
+	stats := NewStatistics(test.NewInMemoryFederationDatabase(), FailuresUntilBlacklist, FailuresUntilAssumedOffline)
 	server := ServerStatistics{statistics: &stats}
 	server.AddRelayServers([]spec.ServerName{"relay1", "relay1", "relay2"})
 	relayServers := server.KnownRelayServers()

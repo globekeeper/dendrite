@@ -84,5 +84,3 @@ __debug_bin*
 
 cmd/dendrite-monolith-server/dendrite-monolith-server
 build
-# helm chart
-helm/dendrite/charts/

@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/tidwall/gjson"
 
 	"github.com/matrix-org/gomatrixserverlib"
@@ -510,13 +509,7 @@ func (r *Inputer) processRoomEvent(
 					logrus.WithError(err).Error("failed to get server ACLs")
 				}
 				if aclEvent != nil {
-					strippedEvent := tables.StrippedEvent{
-						RoomID:       aclEvent.RoomID().String(),
-						EventType:    aclEvent.Type(),
-						StateKey:     *aclEvent.StateKey(),
-						ContentValue: string(aclEvent.Content()),
-					}
-					r.ACLs.OnServerACLUpdate(strippedEvent)
+					r.ACLs.OnServerACLUpdate(aclEvent)
 				}
 			}
 		}

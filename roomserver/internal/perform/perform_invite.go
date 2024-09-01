@@ -144,9 +144,11 @@ func (r *Inviter) PerformInvite(
 	}
 
 	content := gomatrixserverlib.MemberContent{
-		Membership: spec.Invite,
-		Reason:     req.InviteInput.Reason,
-		IsDirect:   req.InviteInput.IsDirect,
+		Membership:  spec.Invite,
+		DisplayName: req.InviteInput.DisplayName,
+		AvatarURL:   req.InviteInput.AvatarURL,
+		Reason:      req.InviteInput.Reason,
+		IsDirect:    req.InviteInput.IsDirect,
 	}
 
 	if err = proto.SetContent(content); err != nil {

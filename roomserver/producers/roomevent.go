@@ -17,7 +17,6 @@ package producers
 import (
 	"encoding/json"
 
-	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
@@ -76,13 +75,7 @@ func (r *RoomEventProducer) ProduceRoomEvents(roomID string, updates []api.Outpu
 
 			if eventType == acls.MRoomServerACL && update.NewRoomEvent.Event.StateKeyEquals("") {
 				ev := update.NewRoomEvent.Event.PDU
-				strippedEvent := tables.StrippedEvent{
-					RoomID:       ev.RoomID().String(),
-					EventType:    ev.Type(),
-					StateKey:     *ev.StateKey(),
-					ContentValue: string(ev.Content()),
-				}
-				defer r.ACLs.OnServerACLUpdate(strippedEvent)
+				defer r.ACLs.OnServerACLUpdate(ev)
 			}
 		}
 		logger.Tracef("Producing to topic '%s'", r.Topic)
